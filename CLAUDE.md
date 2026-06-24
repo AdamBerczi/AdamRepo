@@ -148,13 +148,16 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   per symbol, via the proxy) — not the old v7 `/finance/quote`, which now needs a
   session crumb and 401s for keyless calls. Host `query1.finance.yahoo.com` is
   allowlisted. The watchlist shows only when no portfolio holdings are set.
-- **Portfolio:** holdings are a *private* figure, so they are NOT in `config.js`.
-  On the page, the Markets/Portfolio card shows "＋ holdings" / "edit" — paste
-  lines of `SYMBOL SHARES [AVG_COST]` (e.g. `AAPL 10 150.25`). Stored in
-  `localStorage["dash-portfolio"]` (this browser only), never committed. With an
-  avg cost it computes total gain/loss; without it, just value + day change.
-  Mixed currencies are summed per-currency. Uses the same Yahoo quote feed (so
-  it needs the proxy deployed).
+- **Portfolio:** two sources, localStorage wins over committed config.
+  - *Private (per browser):* on the page the Markets/Portfolio card shows
+    "＋ holdings" / "edit" — paste `SYMBOL SHARES [AVG_COST]` lines (e.g.
+    `AAPL 10 150.25`). Stored in `localStorage["dash-portfolio"]`, never committed.
+  - *Committed (public):* `CFG.portfolio` in `config.js` — `{ currency, cash,
+    holdings:[{symbol,shares,cost}] }`. ⚠️ The repo/site is public, so this
+    exposes the portfolio. `cash` is added to the displayed total but excluded
+    from gain/loss.
+  With avg cost it computes total gain/loss; without it, just value + day change.
+  Mixed currencies are summed per-currency. Uses the Yahoo quote feed (via proxy).
 - **Add a news feed:** add `{ name, url }` to `news.feeds`, **then add the feed's
   hostname to `ALLOWED_HOSTS` and redeploy the proxy.** News is set to
   English breaking/important top-story feeds (BBC, Al Jazeera, NPR); titles
