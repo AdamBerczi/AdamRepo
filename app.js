@@ -195,10 +195,18 @@
   /* ========================================================================
    * Stocks — Yahoo Finance quote endpoint (via CORS proxy)
    * ======================================================================*/
-  // Portfolio holdings are a *private* figure, so they live in localStorage only
-  // (never committed). Each holding: { symbol, shares, cost? (avg cost/share) }.
+  // Portfolio holdings come from localStorage (private, entered on the page) if
+  // present, otherwise from CFG.portfolio.holdings (committed). localStorage
+  // wins so a per-browser override beats the committed default. Each holding:
+  // { symbol, shares, cost? (avg cost/share) }.
   const PF_KEY = "dash-portfolio";
-  const getPortfolio = () => { try { return JSON.parse(localStorage.getItem(PF_KEY)) || []; } catch { return []; } };
+  const getPortfolio = () => {
+    try { const a = JSON.parse(localStorage.getItem(PF_KEY)); if (Array.isArray(a) && a.length) return a; } catch {}
+    const c = CFG.portfolio && CFG.portfolio.holdings;
+    return Array.isArray(c) ? c : [];
+  };
+  const getCash = () => (CFG.portfolio && +CFG.portfolio.cash) || 0;
+  const cashCur = () => (CFG.portfolio && CFG.portfolio.currency) || "USD";
   const fmtCur = (n, cur) => {
     try { return n.toLocaleString(undefined, { style: "currency", currency: cur || "USD", maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2 }); }
     catch { return fmtMoney(n) + (cur && cur !== "USD" ? " " + cur : ""); }
@@ -242,7 +250,11 @@
   }
 
   function renderPortfolio(body, holdings, bySym) {
-    const totals = {}; // grouped by currency so mixed-currency portfolios stay honest
+    // Per-currency totals. `value` = market value of holdings (used for P/L vs
+    // `cost`); `cash` is tracked separately and added to the displayed total but
+    // never counted as a gain.
+    const totals = {};
+    const bucket = (cur) => totals[cur] || (totals[cur] = { value: 0, day: 0, cost: 0, cash: 0, hasCost: false });
     const rows = holdings.map((h) => {
       const q = bySym[h.symbol];
       if (!q || q.regularMarketPrice == null) {
@@ -253,7 +265,7 @@
       const value = q.regularMarketPrice * h.shares;
       const dayPct = q.regularMarketChangePercent ?? 0;
       const dayVal = (q.regularMarketChange ?? 0) * h.shares;
-      const t = totals[cur] || (totals[cur] = { value: 0, day: 0, cost: 0, hasCost: false });
+      const t = bucket(cur);
       t.value += value; t.day += dayVal;
       let plStr = "";
       if (h.cost != null) {
@@ -272,7 +284,18 @@
         </div></div>`;
     }).join("");
 
+    const cash = getCash();
+    let cashRow = "";
+    if (cash > 0) {
+      const cur = cashCur();
+      bucket(cur).cash += cash;
+      cashRow = `<div class="tick">
+        <div><div class="tick__sym">Cash</div></div>
+        <div class="tick__right"><div class="tick__price">${fmtCur(cash, cur)}</div></div></div>`;
+    }
+
     const summary = Object.entries(totals).map(([cur, t]) => {
+      const total = t.value + t.cash;
       const dCls = t.day >= 0 ? "up" : "down";
       let plPart = "";
       if (t.hasCost) {
@@ -282,12 +305,12 @@
       return `<div class="pf-sum">
         <div class="pf-sum__cur">${esc(cur)}</div>
         <div class="pf-sum__r">
-          <div class="pf-sum__val">${fmtCur(t.value, cur)}</div>
+          <div class="pf-sum__val">${fmtCur(total, cur)}</div>
           <div class="pf-sum__meta"><span class="${dCls}">${t.day >= 0 ? "▲" : "▼"} ${fmtCur(Math.abs(t.day), cur)} today</span>${plPart}</div>
         </div></div>`;
     }).join("");
 
-    body.innerHTML = summary + rows;
+    body.innerHTML = summary + rows + cashRow;
   }
 
   // Quotes via Yahoo's v8 chart endpoint (one request per symbol). Unlike the
@@ -318,7 +341,7 @@
   async function loadStocks() {
     const body = $("stocksBody"), cfg = CFG.stocks || {};
     const holdings = getPortfolio(), watch = cfg.symbols || [];
-    const symbols = [...new Set([...holdings.map((h) => h.symbol), ...watch])];
+    const symbols = holdings.length ? [...new Set(holdings.map((h) => h.symbol))] : watch;
     const title = $("stocksTitle");
     if (!cfg.enabled || !symbols.length) { $("stocksCard").style.display = "none"; return; }
 

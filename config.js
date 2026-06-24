@@ -42,6 +42,22 @@ window.DASH_CONFIG = {
     refreshMinutes: 5,
   },
 
+  // ---- Portfolio -----------------------------------------------------------
+  // ⚠️ PUBLIC: this repo/site is public, so anything here is visible to anyone.
+  // Committed holdings shown in the Markets/Portfolio card. Live prices are
+  // fetched; you only specify shares + average cost per share. Optional `cash`
+  // is added to the total value. (A private alternative is to leave `holdings`
+  // empty and enter them on the page via "＋ holdings" — that stays in your
+  // browser's localStorage and is never committed; localStorage overrides this.)
+  portfolio: {
+    currency: "USD",
+    cash: 4008.00,
+    holdings: [
+      { symbol: "MSFT", shares: 4,  cost: 336.80 },
+      { symbol: "NVDA", shares: 40, cost: 30.46 },
+    ],
+  },
+
   // ---- News ----------------------------------------------------------------
   // English-language breaking / important headlines. These are top-story /
   // front-page feeds (editorially curated for importance), merged and sorted by
