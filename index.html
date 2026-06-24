@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Home</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◐</text></svg>" />
+  <link rel="preconnect" href="https://api.open-meteo.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="dash" id="dash">
+    <!-- Header: clock, greeting, theme toggle -->
+    <header class="head">
+      <div class="head__left">
+        <div class="clock" id="clock">––:––</div>
+        <div class="greeting" id="greeting">Hello</div>
+      </div>
+      <div class="head__right">
+        <div class="date" id="date"></div>
+        <button class="ghost-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+      </div>
+    </header>
+
+    <!-- Search -->
+    <form class="search" id="searchForm" autocomplete="off">
+      <input class="search__input" id="searchInput" type="text"
+             placeholder="Search the web…  (try !g, !yt, !gh, !w)" aria-label="Search" />
+    </form>
+
+    <!-- Widget grid -->
+    <section class="grid">
+      <article class="card card--weather" id="weatherCard">
+        <div class="card__head"><h2>Weather</h2><span class="card__sub" id="weatherLoc"></span></div>
+        <div class="card__body" id="weatherBody"><div class="skeleton">Loading…</div></div>
+      </article>
+
+      <article class="card card--stocks" id="stocksCard">
+        <div class="card__head"><h2>Markets</h2><span class="card__sub" id="stocksSub"></span></div>
+        <div class="card__body" id="stocksBody"><div class="skeleton">Loading…</div></div>
+      </article>
+
+      <article class="card card--news" id="newsCard">
+        <div class="card__head"><h2>News</h2><span class="card__sub" id="newsSub"></span></div>
+        <div class="card__body" id="newsBody"><div class="skeleton">Loading…</div></div>
+      </article>
+
+      <article class="card card--sports" id="sportsCard">
+        <div class="card__head"><h2>Sports</h2><span class="card__sub" id="sportsSub"></span></div>
+        <div class="card__body" id="sportsBody"><div class="skeleton">Loading…</div></div>
+      </article>
+
+      <article class="card card--calendar" id="calendarCard">
+        <div class="card__head"><h2>Calendar</h2><span class="card__sub" id="calSub"></span></div>
+        <div class="card__body" id="calendarBody"><div class="skeleton">Loading…</div></div>
+      </article>
+
+      <article class="card card--links" id="linksCard">
+        <div class="card__head"><h2>Links</h2></div>
+        <div class="card__body links" id="linksBody"></div>
+      </article>
+    </section>
+
+    <footer class="foot">
+      <span id="footStatus"></span>
+      <button class="ghost-btn ghost-btn--sm" id="refreshBtn" title="Refresh all">↻ refresh</button>
+    </footer>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
