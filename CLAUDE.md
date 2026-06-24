@@ -180,6 +180,11 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   `localStorage["dash-calendar-urls"]` (this browser only), never committed;
   "edit" in the card header updates/clears. Any new host still needs adding to
   `ALLOWED_HOSTS`.
+  - *Committed feeds:* `calendar.feeds` in `config.js` takes public .ics URLs.
+    Relative paths are served same-origin (no proxy) — e.g. `tv-shows.ics`, a
+    committed pogdesign export. ⚠️ That file is a **static snapshot** (won't
+    auto-update; events age out); for a live feed paste the subscribe URL on the
+    page. Cross-origin feeds use the proxy (`calNeedsProxy`); same-origin don't.
 - **Change location:** edit `location` (lat/lon from latlong.net, IANA
   `timezone`, `units: "metric" | "imperial"`).
 
