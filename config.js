@@ -27,11 +27,11 @@ window.DASH_CONFIG = {
   // but for reliability host your own (see CLAUDE.md → "Self-hosted proxy").
   // The "{url}" token is replaced with the URL-encoded target.
   //
-  // Points at the dedicated proxy Worker in /proxy (deploy with
-  // `cd proxy && npx wrangler deploy`). It only proxies the host allowlist in
-  // proxy/worker.js. The public fallback below works without deploying anything.
-  corsProxy: "https://personal-dash-proxy.adam-berczi.workers.dev/?url={url}",
-  // corsProxy: "https://api.allorigins.win/raw?url={url}",
+  // ACTIVE: public allorigins proxy — works with zero deploy (slower, public,
+  // can be rate-limited). To switch to your own private/fast Worker, deploy it
+  // (`cd proxy && npx wrangler deploy`) and swap the two lines below.
+  corsProxy: "https://api.allorigins.win/raw?url={url}",
+  // corsProxy: "https://personal-dash-proxy.adam-berczi.workers.dev/?url={url}",
 
   // ---- Stocks --------------------------------------------------------------
   // Add ticker symbols you want to watch. For non-US exchanges use the Yahoo
