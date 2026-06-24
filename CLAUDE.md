@@ -77,10 +77,20 @@ teams, wire the calendar. All of that = edit `config.js` (see "Common edits").
 - **Escape untrusted strings.** Feed/API text is injected with `innerHTML`, so
   pass it through `esc()` first (done throughout). Keep doing this.
 - **Styling.** Use existing CSS custom properties (`--accent`, `--text-dim`,
-  `--up`/`--down`, `--radius`, …). One accent colour; keep it minimal. New
-  widgets follow the `.card` / `.card__head` / `.card__body` markup pattern.
+  `--up`/`--down`, `--radius`, glass tokens `--glass-bg`/`--glass-border`/
+  `--glass-hi`, …). New widgets follow the `.card` / `.card__head` / `.card__body`
+  pattern and inherit the glass surface automatically (the glass declarations are
+  shared on `.card, .search__input, .ghost-btn, .link`).
+- **Dynamic scene.** The background is a layered gradient driven by
+  `--scene-1..3` + `--accent`, set in `app.js → applyScene()` from time of day
+  (`sceneFor`) and the live weather code. The colors are registered with
+  `@property` so the body cross-fades when they change. Edit palettes/weather
+  tints in `sceneFor`. Don't hardcode a flat background.
 - **Theme.** `[data-theme="dark|light"]` on `<html>`, persisted in
-  `localStorage["dash-theme"]`; `"auto"` follows the OS.
+  `localStorage["dash-theme"]`; `"auto"` follows the OS. Dark = full scene +
+  glass; light = a clean light variant (the accent still follows time of day).
+- **Fonts.** Inter (UI) + Instrument Serif (the italic greeting) loaded from
+  Google Fonts in `index.html`, with system fallbacks if offline.
 
 ## Data sources (and their quirks)
 

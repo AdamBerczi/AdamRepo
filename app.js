@@ -37,6 +37,58 @@
   };
 
   /* ========================================================================
+   * Scene — dynamic background by time of day, tinted by live weather.
+   * Sets animatable CSS vars (--scene-1..3, --accent) that the body gradient
+   * reads; @property in CSS makes the swap cross-fade.
+   * ======================================================================*/
+  let lastWeatherCode = null;
+  const _hx = (h) => { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+  const _hex = (r) => "#" + r.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  const mix = (a, b, t) => { const A = _hx(a), B = _hx(b); return _hex(A.map((v, i) => v + (B[i] - v) * t)); };
+
+  function localHour(date) {
+    const h = date.toLocaleTimeString("en-GB", { hour: "2-digit", hour12: false, timeZone: CFG.location?.timezone });
+    const n = parseInt(h, 10);
+    return isNaN(n) ? date.getHours() : n;
+  }
+
+  function sceneFor(date, code) {
+    const h = localHour(date);
+    // base palette by time of day: [glow, mid, deep], accent
+    let s;
+    if (h >= 22 || h < 5)      s = { stops: ["#222d4a", "#0d1120", "#05060c"], accent: "#8aa0ff" }; // night
+    else if (h < 8)            s = { stops: ["#46314f", "#241a30", "#0e0b18"], accent: "#ff9e7a" }; // dawn
+    else if (h < 11)           s = { stops: ["#27506b", "#122a3c", "#08131f"], accent: "#5bb6e6" }; // morning
+    else if (h < 16)           s = { stops: ["#2a5160", "#143038", "#0a181d"], accent: "#52c6bb" }; // midday
+    else if (h < 19)           s = { stops: ["#6f3c2e", "#3a2320", "#160d0e"], accent: "#ff8a5c" }; // golden hour
+    else                       s = { stops: ["#3c2b52", "#1d1730", "#0c0a16"], accent: "#c98bff" }; // dusk
+
+    // weather tint
+    const c = code;
+    const cloud = [2, 3, 45, 48].includes(c);
+    const rain = (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || (c >= 95 && c <= 99);
+    const snow = (c >= 71 && c <= 77) || c === 85 || c === 86;
+    if (rain) { s.stops = s.stops.map((x) => mix(x, "#1b2632", 0.5)); s.accent = mix(s.accent, "#6f93c0", 0.5); }
+    else if (snow) { s.stops = s.stops.map((x) => mix(x, "#566373", 0.42)); s.accent = mix(s.accent, "#bcd0e8", 0.5); }
+    else if (cloud) { s.stops = s.stops.map((x) => mix(x, "#363b46", 0.32)); s.accent = mix(s.accent, "#9aa6b8", 0.35); }
+    return s;
+  }
+
+  function applyScene(code) {
+    const s = sceneFor(new Date(), code);
+    const root = document.documentElement.style;
+    root.setProperty("--accent", s.accent);
+    if (document.documentElement.dataset.theme !== "light") {
+      root.setProperty("--scene-1", s.stops[0]);
+      root.setProperty("--scene-2", s.stops[1]);
+      root.setProperty("--scene-3", s.stops[2]);
+    } else {
+      // light theme uses the stylesheet's light scene; only the accent follows time
+      ["--scene-1", "--scene-2", "--scene-3"].forEach((p) => root.removeProperty(p));
+    }
+  }
+
+  /* ========================================================================
    * Clock, greeting, theme
    * ======================================================================*/
   function tickClock() {
@@ -66,6 +118,7 @@
         ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
         : mode;
       document.documentElement.dataset.theme = m;
+      applyScene(lastWeatherCode);
     }
   }
 
@@ -123,6 +176,7 @@
       });
       const d = await getJSON(u.toString());
       const c = d.current, [desc, ico] = WX[c.weather_code] || ["—", "•"];
+      lastWeatherCode = c.weather_code; applyScene(lastWeatherCode);
       const tU = imperial ? "°F" : "°C", wU = imperial ? "mph" : "km/h";
       const days = d.daily.time.map((t, i) => {
         const [, dico] = WX[d.daily.weather_code[i]] || ["", "•"];
@@ -468,6 +522,7 @@
   function init() {
     initTheme(); initSearch(); loadLinks();
     tickClock(); setInterval(tickClock, 1000 * 15);
+    setInterval(() => applyScene(lastWeatherCode), 10 * 60000); // track time-of-day
     refreshAll();
     schedule(loadWeather, 15);
     schedule(loadStocks, CFG.stocks?.refreshMinutes || 5);

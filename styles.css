@@ -1,55 +1,89 @@
 /* =============================================================================
- * styles.css — minimalist, stylish start page
- * Dark-first with an automatic light theme. Single accent. Generous space.
+ * styles.css — bold, editorial, glassmorphic start page
+ * A dynamic "scene" background (set by time of day + weather in app.js) sits
+ * behind translucent glass panels. Dark = full scene; light = clean variant.
  * ===========================================================================*/
 
+/* Animatable scene colors — registered so the background cross-fades smoothly
+   when app.js swaps them as the hour/weather changes. */
+@property --scene-1 { syntax: "<color>"; inherits: true; initial-value: #243049; }
+@property --scene-2 { syntax: "<color>"; inherits: true; initial-value: #0f1422; }
+@property --scene-3 { syntax: "<color>"; inherits: true; initial-value: #05070d; }
+@property --accent  { syntax: "<color>"; inherits: true; initial-value: #8aa0ff; }
+
 :root {
-  --bg: #0e0f13;
-  --bg-elev: #16181f;
-  --bg-hover: #1d2029;
-  --line: #262a35;
-  --text: #e7e9ee;
-  --text-dim: #9aa0ad;
-  --text-faint: #646b7a;
-  --accent: #7c9cff;
-  --accent-soft: #7c9cff22;
-  --up: #4ade80;
-  --down: #f87171;
-  --radius: 16px;
-  --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 30px rgba(0,0,0,0.35);
+  /* scene (overwritten by app.js) */
+  --scene-1: #243049;
+  --scene-2: #0f1422;
+  --scene-3: #05070d;
+  --accent:  #8aa0ff;
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+
+  /* glass surface tokens (dark) */
+  --glass-bg:     rgba(18, 20, 28, 0.42);
+  --glass-bg-2:   rgba(28, 31, 42, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-hi:     rgba(255, 255, 255, 0.07);
+  --glass-blur:   22px;
+
+  /* text */
+  --text: #f3f4f8;
+  --text-dim: #b9c0cf;
+  --text-faint: #7e8799;
+  --line: rgba(255, 255, 255, 0.09);
+
+  --up: #5fe39a;
+  --down: #ff7a7a;
+  --radius: 18px;
+  --shadow: 0 14px 44px rgba(0, 0, 0, 0.40), inset 0 1px 0 var(--glass-hi);
   --gap: 18px;
   --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --serif: "Instrument Serif", "Iowan Old Style", Georgia, "Times New Roman", serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
 :root[data-theme="light"] {
-  --bg: #f6f7f9;
-  --bg-elev: #ffffff;
-  --bg-hover: #eef0f4;
-  --line: #e4e7ec;
-  --text: #1a1d23;
-  --text-dim: #5b6470;
-  --text-faint: #98a1ad;
-  --accent: #3b5bdb;
-  --accent-soft: #3b5bdb14;
-  --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px rgba(16,24,40,0.06);
+  --scene-1: #dfe6f3;
+  --scene-2: #eef1f7;
+  --scene-3: #f6f7fb;
+  --glass-bg:     rgba(255, 255, 255, 0.55);
+  --glass-bg-2:   rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(20, 24, 40, 0.10);
+  --glass-hi:     rgba(255, 255, 255, 0.70);
+  --text: #181b22;
+  --text-dim: #4a5260;
+  --text-faint: #8b93a3;
+  --line: rgba(20, 24, 40, 0.10);
+  --shadow: 0 12px 36px rgba(30, 40, 70, 0.12), inset 0 1px 0 var(--glass-hi);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body {
-  height: 100%;
-  background: var(--bg);
+html, body { height: 100%; }
+
+body {
   color: var(--text);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
+  /* Layered scene: a warm/cool glow up high, a second glow low, over a vertical
+     wash. app.js swaps --scene-* and --accent; @property makes it cross-fade. */
+  background:
+    radial-gradient(130% 90% at 78% 6%, var(--scene-1), transparent 56%),
+    radial-gradient(120% 110% at 12% 104%, color-mix(in srgb, var(--accent) 22%, var(--scene-2)), transparent 60%),
+    linear-gradient(170deg, var(--scene-2) 0%, var(--scene-3) 100%);
+  background-attachment: fixed;
+  transition: --scene-1 1.4s ease, --scene-2 1.4s ease, --scene-3 1.4s ease, --accent 1.4s ease;
+  min-height: 100%;
 }
 
-body {
-  background-image: radial-gradient(1200px 600px at 80% -10%, var(--accent-soft), transparent 60%);
+/* Filmic vignette + faint grain for depth. */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(130% 100% at 50% 30%, transparent 55%, rgba(0,0,0,0.38) 100%);
 }
 
 .dash {
+  position: relative; z-index: 1;
   max-width: 1180px;
   margin: 0 auto;
   padding: clamp(24px, 5vw, 64px) clamp(18px, 4vw, 40px) 40px;
@@ -65,57 +99,70 @@ body {
 .head__right { display: flex; align-items: center; gap: 14px; }
 
 .clock {
-  font-size: clamp(40px, 8vw, 68px);
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1;
+  font-size: clamp(48px, 9vw, 84px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.35);
 }
-.clock span { color: var(--text-faint); font-weight: 400; }
-.greeting { color: var(--text-dim); font-size: 16px; margin-top: 4px; }
-.date { color: var(--text-dim); font-size: 14px; text-align: right; }
+.clock span { color: var(--accent); font-weight: 300; }
+.greeting {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(20px, 3vw, 30px);
+  color: var(--text-dim);
+  margin-top: 8px;
+  letter-spacing: 0.01em;
+}
+.date { color: var(--text-dim); font-size: 14px; text-align: right; text-shadow: 0 1px 10px rgba(0,0,0,.3); }
+
+/* Glass mixin via shared declarations */
+.ghost-btn, .search__input, .card, .link {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--glass-border);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ghost-btn, .search__input, .card, .link { background: var(--glass-bg-2); }
+}
 
 .ghost-btn {
-  background: var(--bg-elev);
   color: var(--text-dim);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  width: 40px; height: 40px;
+  border-radius: 13px;
+  width: 42px; height: 42px;
   font-size: 18px;
   cursor: pointer;
-  transition: background .15s, color .15s, transform .1s;
+  box-shadow: var(--shadow);
+  transition: background .15s, color .15s, transform .1s, border-color .15s;
 }
-.ghost-btn:hover { background: var(--bg-hover); color: var(--text); }
+.ghost-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .ghost-btn:active { transform: scale(0.94); }
-.ghost-btn--sm { width: auto; height: auto; padding: 5px 11px; font-size: 12px; border-radius: 9px; }
+.ghost-btn--sm { width: auto; height: auto; padding: 6px 12px; font-size: 12px; border-radius: 10px; }
 
 /* ---- Search --------------------------------------------------------------*/
 .search { width: 100%; }
 .search__input {
   width: 100%;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--text);
   font-size: 16px;
   font-family: var(--font);
-  padding: 16px 20px;
+  padding: 17px 22px;
   outline: none;
   box-shadow: var(--shadow);
   transition: border-color .15s, box-shadow .15s;
 }
 .search__input::placeholder { color: var(--text-faint); }
-.search__input:focus { border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft); }
+.search__input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft);
+}
 
 /* ---- Grid ----------------------------------------------------------------*/
-.grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--gap);
-}
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--gap); }
 .card {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px 22px;
@@ -124,7 +171,6 @@ body {
   gap: 14px;
   min-height: 160px;
 }
-/* Layout: weather + stocks on top row; news tall; sports + calendar; links wide */
 .card--weather  { grid-column: span 2; }
 .card--stocks   { grid-column: span 2; }
 .card--news     { grid-column: span 2; grid-row: span 2; }
@@ -133,18 +179,19 @@ body {
 .card--links    { grid-column: span 4; min-height: auto; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.card__head h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+.card__head h2 { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }
 .card__sub { font-size: 12px; color: var(--text-faint); }
+.card__sub a { color: var(--accent); text-decoration: none; }
 .card__body { flex: 1; }
 
 .skeleton { color: var(--text-faint); font-size: 14px; }
 .err { color: var(--down); font-size: 13px; line-height: 1.5; }
-.err a { color: var(--accent); }
+.err a, .skeleton a { color: var(--accent); }
 
 /* ---- Weather -------------------------------------------------------------*/
 .wx-now { display: flex; align-items: center; gap: 16px; }
-.wx-temp { font-size: 46px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
-.wx-icon { font-size: 40px; }
+.wx-temp { font-size: 50px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.wx-icon { font-size: 42px; }
 .wx-desc { color: var(--text-dim); font-size: 14px; }
 .wx-meta { color: var(--text-faint); font-size: 12px; margin-top: 2px; }
 .wx-days { display: flex; justify-content: space-between; margin-top: 14px; gap: 6px; }
@@ -154,8 +201,8 @@ body {
 .wx-day .t { font-size: 13px; font-variant-numeric: tabular-nums; }
 .wx-day .t i { color: var(--text-faint); font-style: normal; }
 
-/* ---- Stocks --------------------------------------------------------------*/
-.tick { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
+/* ---- Stocks / Portfolio --------------------------------------------------*/
+.tick { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .tick:last-child { border-bottom: none; }
 .tick__sym { font-weight: 600; font-size: 14px; }
 .tick__name { color: var(--text-faint); font-size: 11px; }
@@ -168,7 +215,7 @@ body {
 .pf-sum { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); gap: 10px; }
 .pf-sum__cur { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; }
 .pf-sum__r { text-align: right; }
-.pf-sum__val { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.pf-sum__val { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .pf-sum__meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
 /* ---- News ----------------------------------------------------------------*/
@@ -194,7 +241,7 @@ body {
 .evt { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .evt:last-child { border-bottom: none; }
 .evt__date { text-align: center; min-width: 38px; }
-.evt__date b { display: block; font-size: 17px; font-weight: 650; line-height: 1; }
+.evt__date b { display: block; font-size: 18px; font-weight: 650; line-height: 1; }
 .evt__date span { font-size: 10px; color: var(--text-faint); text-transform: uppercase; }
 .evt__body { font-size: 13px; line-height: 1.4; }
 .evt__time { color: var(--text-faint); font-size: 11px; }
@@ -203,15 +250,17 @@ body {
 .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
 .link {
   display: flex; align-items: center; gap: 9px;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 11px;
-  padding: 11px 13px; text-decoration: none; color: var(--text); font-size: 13px;
-  transition: background .15s, border-color .15s, transform .1s;
+  border-radius: 12px;
+  padding: 12px 14px; text-decoration: none; color: var(--text); font-size: 13px;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+  transition: border-color .15s, transform .1s, background .15s;
 }
-.link:hover { background: var(--bg-hover); border-color: var(--accent); transform: translateY(-1px); }
-.link__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+.link:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-2px); }
+.link__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; box-shadow: 0 0 10px var(--accent); }
 
 /* ---- Footer --------------------------------------------------------------*/
 .foot { display: flex; align-items: center; justify-content: space-between; color: var(--text-faint); font-size: 12px; margin-top: auto; }
+.foot .ghost-btn--sm { background: var(--glass-bg); }
 
 /* ---- Responsive ----------------------------------------------------------*/
 @media (max-width: 900px) {
@@ -227,4 +276,4 @@ body {
   .date { display: none; }
 }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, body { transition: none !important; } }
