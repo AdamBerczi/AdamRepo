@@ -13,26 +13,38 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Atmospheric scene: sun, clouds, mountain ridge — driven by app.js -->
+  <div class="scene" aria-hidden="true">
+    <div class="scene__sun"></div>
+    <div class="scene__clouds">
+      <span class="cloud c1"></span><span class="cloud c2"></span>
+      <span class="cloud c3"></span><span class="cloud c4"></span>
+    </div>
+    <div class="scene__ridge">
+      <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
+        <path class="ridge ridge--back" d="M0,220 L160,170 L320,210 L470,150 L640,200 L800,140 L980,195 L1150,150 L1320,200 L1440,170 L1440,320 L0,320 Z"/>
+        <path class="ridge ridge--front" d="M0,270 L120,235 L260,275 L420,210 L560,260 L720,205 L900,265 L1080,220 L1260,270 L1440,235 L1440,320 L0,320 Z"/>
+      </svg>
+    </div>
+    <div class="scene__vignette"></div>
+  </div>
+
+  <!-- Top bar (taskbar-style) -->
+  <header class="topbar">
+    <div class="topbar__group">
+      <span class="tb-brand">◐</span>
+      <span class="tb-greeting" id="greeting">Hello</span>
+    </div>
+    <div class="topbar__group topbar__right">
+      <span class="tb-wx" id="tbWeather"></span>
+      <span class="tb-sep"></span>
+      <span class="tb-clock" id="clock">––:––</span>
+      <span class="tb-date" id="date"></span>
+      <button class="ghost-btn ghost-btn--sm" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
   <main class="dash" id="dash">
-    <!-- Header: clock, greeting, theme toggle -->
-    <header class="head">
-      <div class="head__left">
-        <div class="clock" id="clock">––:––</div>
-        <div class="greeting" id="greeting">Hello</div>
-      </div>
-      <div class="head__right">
-        <div class="date" id="date"></div>
-        <button class="ghost-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
-      </div>
-    </header>
-
-    <!-- Search -->
-    <form class="search" id="searchForm" autocomplete="off">
-      <input class="search__input" id="searchInput" type="text"
-             placeholder="Search the web…  (try !g, !yt, !gh, !w)" aria-label="Search" />
-    </form>
-
-    <!-- Widget grid -->
     <section class="grid">
       <article class="card card--weather" id="weatherCard">
         <div class="card__head"><h2>Weather</h2><span class="card__sub" id="weatherLoc"></span></div>
@@ -58,18 +70,19 @@
         <div class="card__head"><h2>Calendar</h2><span class="card__sub" id="calSub"></span></div>
         <div class="card__body" id="calendarBody"><div class="skeleton">Loading…</div></div>
       </article>
-
-      <article class="card card--links" id="linksCard">
-        <div class="card__head"><h2>Links</h2></div>
-        <div class="card__body links" id="linksBody"></div>
-      </article>
     </section>
+  </main>
 
-    <footer class="foot">
+  <!-- Bottom bar (taskbar-style) -->
+  <footer class="bottombar">
+    <div class="bottombar__group">
+      <span class="bb-brand">◐ dashboard</span>
+    </div>
+    <div class="bottombar__group bottombar__right">
       <span id="footStatus"></span>
       <button class="ghost-btn ghost-btn--sm" id="refreshBtn" title="Refresh all">↻ refresh</button>
-    </footer>
-  </main>
+    </div>
+  </footer>
 
   <script src="config.js"></script>
   <script src="app.js"></script>

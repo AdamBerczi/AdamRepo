@@ -70,29 +70,20 @@ window.DASH_CONFIG = {
   },
 
   // ---- Calendar ------------------------------------------------------------
-  // Your Google Calendar's iCal address is a SECRET (anyone with it can read
-  // your calendar), so it is NOT stored here. Connect it from the page itself:
-  // click "＋ Connect Google Calendar" in the Calendar card and paste the
-  // "Secret address in iCal format" (Calendar settings → "Integrate calendar").
-  // It is saved only in your browser's localStorage and never committed.
-  // The `url` below is just an optional public fallback — leave it empty.
+  // iCal URLs are SECRET (anyone with one can read that calendar), so they are
+  // NOT stored here. Connect them from the page: click "＋ Connect calendar" in
+  // the Calendar card and paste one URL per line. Multiple feeds are merged —
+  // e.g. a Google calendar ("Integrate calendar" → "Secret address in iCal
+  // format") plus a pogdesign TV calendar (pogdesign.co.uk/cat → pick shows →
+  // iCal subscribe URL). Saved only in your browser's localStorage.
+  // `url`/`feeds` below are optional non-secret fallbacks — usually left empty.
   calendar: {
     enabled: true,
-    maxItems: 6,
+    maxItems: 7,
     refreshMinutes: 30,
     url: "",
+    feeds: [], // optional public .ics URLs (strings) — secrets go in the page
   },
-
-  // ---- Quick links ---------------------------------------------------------
-  // Your most-used bookmarks. Shown as a compact grid.
-  links: [
-    { name: "Gmail", url: "https://mail.google.com" },
-    { name: "Calendar", url: "https://calendar.google.com" },
-    { name: "GitHub", url: "https://github.com" },
-    { name: "Drive", url: "https://drive.google.com" },
-    { name: "YouTube", url: "https://youtube.com" },
-    { name: "Maps", url: "https://maps.google.com" },
-  ],
 
   // ---- Theme ---------------------------------------------------------------
   // "auto" follows your OS; "dark" / "light" force a mode. Toggle anytime

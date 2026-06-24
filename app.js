@@ -75,7 +75,8 @@
   }
 
   function applyScene(code) {
-    const s = sceneFor(new Date(), code);
+    const date = new Date();
+    const s = sceneFor(date, code);
     const root = document.documentElement.style;
     root.setProperty("--accent", s.accent);
     if (document.documentElement.dataset.theme !== "light") {
@@ -86,6 +87,19 @@
       // light theme uses the stylesheet's light scene; only the accent follows time
       ["--scene-1", "--scene-2", "--scene-3"].forEach((p) => root.removeProperty(p));
     }
+
+    // Sun position by hour (low near sunrise/sunset, high at midday) and the
+    // sky condition that shows/hides the sun + clouds + ridge layers.
+    const h = localHour(date);
+    root.setProperty("--sun-x", Math.max(5, Math.min(95, ((h - 6) / 13) * 100)) + "%");
+    root.setProperty("--sun-y", Math.max(26, Math.min(92, 26 + (Math.abs(h - 13) / 7) * 64)) + "%");
+    let sky;
+    if (h >= 21 || h < 5) sky = "night";
+    else if (code == null || code === 0 || code === 1) sky = "clear";
+    else if (code === 2) sky = "partly";
+    else if ([3, 45, 48, 71, 73, 75, 77, 85, 86].includes(code)) sky = "cloudy";
+    else sky = "rain";
+    document.body.dataset.sky = sky;
   }
 
   /* ========================================================================
@@ -123,30 +137,6 @@
   }
 
   /* ========================================================================
-   * Search — DuckDuckGo with bang shortcuts (!g google, !yt youtube, etc.)
-   * ======================================================================*/
-  function initSearch() {
-    const bangs = {
-      g: "https://www.google.com/search?q=",
-      yt: "https://www.youtube.com/results?search_query=",
-      gh: "https://github.com/search?q=",
-      w: "https://en.wikipedia.org/w/index.php?search=",
-      maps: "https://www.google.com/maps/search/",
-    };
-    $("searchForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      let q = $("searchInput").value.trim();
-      if (!q) return;
-      const m = q.match(/^!(\w+)\s+(.*)/);
-      if (m && bangs[m[1]]) { location.href = bangs[m[1]] + encodeURIComponent(m[2]); return; }
-      if (/^https?:\/\//.test(q) || /^[\w-]+\.\w{2,}($|\/)/.test(q)) {
-        location.href = /^https?:\/\//.test(q) ? q : "https://" + q; return;
-      }
-      location.href = "https://duckduckgo.com/?q=" + encodeURIComponent(q);
-    });
-  }
-
-  /* ========================================================================
    * Weather — Open-Meteo (no API key required)
    * ======================================================================*/
   const WX = {
@@ -178,6 +168,8 @@
       const c = d.current, [desc, ico] = WX[c.weather_code] || ["—", "•"];
       lastWeatherCode = c.weather_code; applyScene(lastWeatherCode);
       const tU = imperial ? "°F" : "°C", wU = imperial ? "mph" : "km/h";
+      const tb = document.getElementById("tbWeather");
+      if (tb) tb.textContent = `${ico} ${Math.round(c.temperature_2m)}${tU}`;
       const days = d.daily.time.map((t, i) => {
         const [, dico] = WX[d.daily.weather_code[i]] || ["", "•"];
         const dn = new Date(t).toLocaleDateString(undefined, { weekday: "short" });
@@ -439,30 +431,52 @@
     const d = z ? new Date(Date.UTC(+y, +mo - 1, +da, +h, +mi, +s)) : new Date(+y, +mo - 1, +da, +h, +mi, +s);
     return { date: d, allDay: false };
   }
+  // Calendar URLs are *secret* (anyone with one can read that calendar), so they
+  // live only in this browser's localStorage — never committed. Multiple feeds
+  // are supported (e.g. a Google calendar + a pogdesign TV calendar); events
+  // from all of them are merged, sorted, and tagged with a short source label.
+  const CAL_KEY = "dash-calendar-urls";
+  function getCalUrls() {
+    const out = [];
+    try { const a = JSON.parse(localStorage.getItem(CAL_KEY)); if (Array.isArray(a)) out.push(...a); } catch {}
+    const legacy = localStorage.getItem("dash-calendar-url"); if (legacy) out.push(legacy); // migrate old single key
+    const cfg = CFG.calendar || {};
+    if (cfg.url) out.push(cfg.url);
+    (cfg.feeds || []).forEach((f) => out.push(typeof f === "string" ? f : f && f.url));
+    return [...new Set(out.filter(Boolean))];
+  }
+  function calSource(u) {
+    try {
+      const h = new URL(u).hostname.replace(/^www\./, "");
+      if (h.includes("pogdesign")) return "TV";
+      if (h.includes("google")) return "Cal";
+      return h.split(".")[0];
+    } catch { return ""; }
+  }
+
   async function loadCalendar() {
     const body = $("calendarBody"), cfg = CFG.calendar || {};
     if (!cfg.enabled) { $("calendarCard").style.display = "none"; return; }
-    // The calendar URL is a *secret* (anyone with it can read your calendar), so
-    // it is stored only in this browser's localStorage — never committed. The
-    // config.js value, if any, is just a fallback.
-    const url = localStorage.getItem("dash-calendar-url") || cfg.url;
-    $("calSub").innerHTML = url
-      ? `<a href="#" id="calEdit">change</a>`
-      : "";
-    const editBtn = $("calEdit");
-    if (editBtn) editBtn.onclick = (e) => { e.preventDefault(); connectCalendar(); };
+    const urls = getCalUrls();
+    $("calSub").innerHTML = urls.length ? `<a href="#" id="calEdit">edit</a>` : "";
+    const e1 = $("calEdit"); if (e1) e1.onclick = (e) => { e.preventDefault(); connectCalendar(); };
 
-    if (!url) {
+    if (!urls.length) {
       body.innerHTML = `<div class="skeleton">No calendar connected.<br>
-        <button class="ghost-btn ghost-btn--sm" id="calConnect" style="margin-top:10px">＋ Connect Google Calendar</button></div>`;
+        <button class="ghost-btn ghost-btn--sm" id="calConnect" style="margin-top:10px">＋ Connect calendar</button></div>`;
       $("calConnect").onclick = connectCalendar;
       return;
     }
     try {
-      const text = await getText(url, { useProxy: true });
       const now = new Date();
-      const events = parseICS(text)
-        .filter((e) => e.start && e.start.date >= new Date(now.getFullYear(), now.getMonth(), now.getDate()))
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const settled = await Promise.allSettled(urls.map(async (u) => {
+        const text = await getText(u, { useProxy: true });
+        const src = calSource(u);
+        return parseICS(text).map((ev) => ({ ...ev, source: src }));
+      }));
+      const events = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value)
+        .filter((e) => e.start && e.start.date >= start)
         .sort((a, b) => a.start.date - b.start.date)
         .slice(0, cfg.maxItems || 6);
       if (!events.length) { body.innerHTML = `<div class="skeleton">No upcoming events.</div>`; return; }
@@ -470,44 +484,35 @@
         const d = e.start.date;
         const time = e.start.allDay ? "All day"
           : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+        const src = e.source ? ` · <span class="evt__src">${esc(e.source)}</span>` : "";
         return `<div class="evt">
           <div class="evt__date"><b>${d.getDate()}</b><span>${d.toLocaleDateString(undefined, { month: "short" })}</span></div>
           <div class="evt__body">${esc(e.summary || "(untitled)")}
-            <div class="evt__time">${time}${e.location ? " · " + esc(e.location.slice(0, 30)) : ""}</div></div>
+            <div class="evt__time">${time}${src}${e.location ? " · " + esc(e.location.slice(0, 24)) : ""}</div></div>
         </div>`;
       }).join("");
     } catch (e) {
-      fail(body, `Calendar unavailable. Check the URL (<a href="#" id="calEdit2">change</a>) and that the proxy allows calendar.google.com.`);
+      fail(body, `Calendar unavailable. Check the URLs (<a href="#" id="calEdit2">edit</a>) and that the proxy allows the host.`);
       const b2 = $("calEdit2"); if (b2) b2.onclick = (ev) => { ev.preventDefault(); connectCalendar(); };
     }
   }
 
-  // Prompt for the secret iCal URL and store it locally (never committed).
+  // Prompt for one or more iCal URLs (one per line). Stored locally only.
   function connectCalendar() {
-    const current = localStorage.getItem("dash-calendar-url") || "";
+    const current = getCalUrls().join("\n");
     const input = prompt(
-      "Paste your Google Calendar SECRET iCal URL.\n" +
-      "(Google Calendar → Settings → your calendar → 'Integrate calendar' → " +
-      "'Secret address in iCal format'.)\n\n" +
-      "Stored only in this browser. Leave blank to disconnect.",
+      "Paste iCal / .ics URLs — one per line. Multiple calendars are supported:\n" +
+      "• Google: Settings → 'Integrate calendar' → 'Secret address in iCal format'\n" +
+      "• pogdesign TV: pogdesign.co.uk/cat → pick shows → copy the iCal subscribe URL\n\n" +
+      "Stored only in this browser. Submit empty to clear all.",
       current
     );
     if (input === null) return; // cancelled
-    let v = input.trim().replace(/^webcal:\/\//i, "https://");
-    if (!v) { localStorage.removeItem("dash-calendar-url"); loadCalendar(); return; }
-    if (!/^https:\/\//i.test(v)) { alert("That doesn't look like an https URL."); return; }
-    localStorage.setItem("dash-calendar-url", v);
+    const urls = input.split("\n").map((l) => l.trim().replace(/^webcal:\/\//i, "https://")).filter(Boolean);
+    if (urls.some((u) => !/^https:\/\//i.test(u))) { alert("Each line must be an https:// URL."); return; }
+    localStorage.setItem(CAL_KEY, JSON.stringify(urls));
+    localStorage.removeItem("dash-calendar-url");
     loadCalendar();
-  }
-
-  /* ========================================================================
-   * Links
-   * ======================================================================*/
-  function loadLinks() {
-    const body = $("linksBody"), links = CFG.links || [];
-    if (!links.length) { $("linksCard").style.display = "none"; return; }
-    body.innerHTML = links.map((l) =>
-      `<a class="link" href="${esc(l.url)}"><span class="link__dot"></span>${esc(l.name)}</a>`).join("");
   }
 
   /* ========================================================================
@@ -520,7 +525,7 @@
   function schedule(fn, minutes) { if (minutes > 0) setInterval(fn, minutes * 60000); }
 
   function init() {
-    initTheme(); initSearch(); loadLinks();
+    initTheme();
     tickClock(); setInterval(tickClock, 1000 * 15);
     setInterval(() => applyScene(lastWeatherCode), 10 * 60000); // track time-of-day
     refreshAll();
