@@ -149,32 +149,126 @@
   /* ========================================================================
    * Stocks — Yahoo Finance quote endpoint (via CORS proxy)
    * ======================================================================*/
+  // Portfolio holdings are a *private* figure, so they live in localStorage only
+  // (never committed). Each holding: { symbol, shares, cost? (avg cost/share) }.
+  const PF_KEY = "dash-portfolio";
+  const getPortfolio = () => { try { return JSON.parse(localStorage.getItem(PF_KEY)) || []; } catch { return []; } };
+  const fmtCur = (n, cur) => {
+    try { return n.toLocaleString(undefined, { style: "currency", currency: cur || "USD", maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2 }); }
+    catch { return fmtMoney(n) + (cur && cur !== "USD" ? " " + cur : ""); }
+  };
+
+  // Paste/edit holdings as plain text — one per line: "SYMBOL SHARES [AVG_COST]".
+  function managePortfolio() {
+    const tmpl = getPortfolio().map((h) => `${h.symbol} ${h.shares}${h.cost != null ? " " + h.cost : ""}`).join("\n");
+    const input = prompt(
+      "Your holdings, one per line:\n  SYMBOL  SHARES  AVG_COST\n" +
+      "e.g.  AAPL 10 150.25   (avg cost optional — needed for gain/loss)\n" +
+      "Non-US tickers use Yahoo suffixes, e.g. OTP.BU, BMW.DE, SHEL.L.\n\n" +
+      "Stored only in this browser. Submit empty to clear.",
+      tmpl
+    );
+    if (input === null) return;
+    const holdings = input.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+      const p = l.split(/\s+/);
+      const symbol = (p[0] || "").toUpperCase();
+      const shares = parseFloat(p[1]);
+      const cost = p[2] != null ? parseFloat(p[2]) : NaN;
+      if (!symbol || !isFinite(shares)) return null;
+      return { symbol, shares, cost: isFinite(cost) ? cost : null };
+    }).filter(Boolean);
+    localStorage.setItem(PF_KEY, JSON.stringify(holdings));
+    loadStocks();
+  }
+
+  function renderTick(q) {
+    const chg = q.regularMarketChangePercent ?? 0;
+    const cls = chg >= 0 ? "up" : "down", arrow = chg >= 0 ? "▲" : "▼";
+    const price = q.regularMarketPrice != null ? fmtMoney(q.regularMarketPrice) : "—";
+    const cur = q.currency && q.currency !== "USD" ? " " + q.currency : "";
+    return `<div class="tick">
+      <div><div class="tick__sym">${esc(q.symbol)}</div>
+        <div class="tick__name">${esc((q.shortName || "").slice(0, 22))}</div></div>
+      <div class="tick__right">
+        <div class="tick__price">${price}${cur}</div>
+        <div class="tick__chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</div>
+      </div></div>`;
+  }
+
+  function renderPortfolio(body, holdings, bySym) {
+    const totals = {}; // grouped by currency so mixed-currency portfolios stay honest
+    const rows = holdings.map((h) => {
+      const q = bySym[h.symbol];
+      if (!q || q.regularMarketPrice == null) {
+        return `<div class="tick"><div><div class="tick__sym">${esc(h.symbol)}</div>
+          <div class="tick__name">no quote</div></div></div>`;
+      }
+      const cur = q.currency || "USD";
+      const value = q.regularMarketPrice * h.shares;
+      const dayPct = q.regularMarketChangePercent ?? 0;
+      const dayVal = (q.regularMarketChange ?? 0) * h.shares;
+      const t = totals[cur] || (totals[cur] = { value: 0, day: 0, cost: 0, hasCost: false });
+      t.value += value; t.day += dayVal;
+      let plStr = "";
+      if (h.cost != null) {
+        const costVal = h.cost * h.shares, pl = value - costVal, plPct = costVal ? (pl / costVal) * 100 : 0;
+        t.cost += costVal; t.hasCost = true;
+        plStr = `<div class="tick__pl ${pl >= 0 ? "up" : "down"}">${pl >= 0 ? "+" : "−"}${fmtCur(Math.abs(pl), cur)} (${pl >= 0 ? "+" : "−"}${Math.abs(plPct).toFixed(1)}%)</div>`;
+      }
+      const dCls = dayPct >= 0 ? "up" : "down", arrow = dayPct >= 0 ? "▲" : "▼";
+      return `<div class="tick">
+        <div><div class="tick__sym">${esc(h.symbol)}</div>
+          <div class="tick__name">${esc(String(h.shares))} sh${h.cost != null ? " @ " + fmtMoney(h.cost) : ""}</div></div>
+        <div class="tick__right">
+          <div class="tick__price">${fmtCur(value, cur)}</div>
+          <div class="tick__chg ${dCls}">${arrow} ${Math.abs(dayPct).toFixed(2)}%</div>
+          ${plStr}
+        </div></div>`;
+    }).join("");
+
+    const summary = Object.entries(totals).map(([cur, t]) => {
+      const dCls = t.day >= 0 ? "up" : "down";
+      let plPart = "";
+      if (t.hasCost) {
+        const pl = t.value - t.cost, plPct = t.cost ? (pl / t.cost) * 100 : 0;
+        plPart = ` · <span class="${pl >= 0 ? "up" : "down"}">${pl >= 0 ? "+" : "−"}${fmtCur(Math.abs(pl), cur)} (${pl >= 0 ? "+" : "−"}${Math.abs(plPct).toFixed(1)}%)</span>`;
+      }
+      return `<div class="pf-sum">
+        <div class="pf-sum__cur">${esc(cur)}</div>
+        <div class="pf-sum__r">
+          <div class="pf-sum__val">${fmtCur(t.value, cur)}</div>
+          <div class="pf-sum__meta"><span class="${dCls}">${t.day >= 0 ? "▲" : "▼"} ${fmtCur(Math.abs(t.day), cur)} today</span>${plPart}</div>
+        </div></div>`;
+    }).join("");
+
+    body.innerHTML = summary + rows;
+  }
+
   async function loadStocks() {
     const body = $("stocksBody"), cfg = CFG.stocks || {};
-    if (!cfg.enabled || !cfg.symbols?.length) { $("stocksCard").style.display = "none"; return; }
+    const holdings = getPortfolio(), watch = cfg.symbols || [];
+    const symbols = [...new Set([...holdings.map((h) => h.symbol), ...watch])];
+    const title = $("stocksTitle");
+    if (!cfg.enabled || !symbols.length) { $("stocksCard").style.display = "none"; return; }
+
+    // header affordance: add / edit holdings
+    $("stocksSub").innerHTML = `<a href="#" id="pfManage">${holdings.length ? "edit" : "＋ holdings"}</a>`;
+    const mb = $("pfManage"); if (mb) mb.onclick = (e) => { e.preventDefault(); managePortfolio(); };
+
     try {
       const url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" +
-        encodeURIComponent(cfg.symbols.join(","));
+        encodeURIComponent(symbols.join(","));
       const d = await getJSON(url, { useProxy: true });
       const rows = d?.quoteResponse?.result || [];
       if (!rows.length) throw new Error("no data");
-      body.innerHTML = rows.map((q) => {
-        const chg = q.regularMarketChangePercent ?? 0;
-        const cls = chg >= 0 ? "up" : "down";
-        const arrow = chg >= 0 ? "▲" : "▼";
-        const price = q.regularMarketPrice != null ? fmtMoney(q.regularMarketPrice) : "—";
-        const cur = q.currency && q.currency !== "USD" ? " " + q.currency : "";
-        return `<div class="tick">
-          <div><div class="tick__sym">${esc(q.symbol)}</div>
-            <div class="tick__name">${esc((q.shortName || "").slice(0, 22))}</div></div>
-          <div class="tick__right">
-            <div class="tick__price">${price}${cur}</div>
-            <div class="tick__chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</div>
-          </div></div>`;
-      }).join("");
-      $("stocksSub").textContent = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      if (title) title.textContent = holdings.length ? "Portfolio" : "Markets";
+      if (holdings.length) {
+        renderPortfolio(body, holdings, Object.fromEntries(rows.map((q) => [q.symbol, q])));
+      } else {
+        body.innerHTML = rows.map(renderTick).join("");
+      }
     } catch (e) {
-      fail(body, "Markets unavailable. The stock source may be rate-limited; see CLAUDE.md for alternatives.");
+      fail(body, "Markets unavailable. The stock source may be rate-limited (deploy the proxy); see CLAUDE.md.");
     }
   }
 
