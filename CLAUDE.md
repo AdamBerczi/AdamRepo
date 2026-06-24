@@ -142,9 +142,11 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
 ## Common edits (all in `config.js` unless noted)
 
 - **Add a stock (watchlist):** push a Yahoo symbol to `stocks.symbols` (suffixes:
-  `.BU` Budapest, `.L` London, `.DE` Frankfurt; crypto like `BTC-USD`). It goes
-  through `query1.finance.yahoo.com`, already allowlisted. The watchlist shows
-  only when no portfolio holdings are set.
+  `.BU` Budapest, `.L` London, `.DE` Frankfurt; crypto like `BTC-USD`). Quotes
+  come from Yahoo's **v8 `/finance/chart`** endpoint (`fetchQuotes`, one request
+  per symbol, via the proxy) — not the old v7 `/finance/quote`, which now needs a
+  session crumb and 401s for keyless calls. Host `query1.finance.yahoo.com` is
+  allowlisted. The watchlist shows only when no portfolio holdings are set.
 - **Portfolio:** holdings are a *private* figure, so they are NOT in `config.js`.
   On the page, the Markets/Portfolio card shows "＋ holdings" / "edit" — paste
   lines of `SYMBOL SHARES [AVG_COST]` (e.g. `AAPL 10 150.25`). Stored in
