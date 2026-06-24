@@ -111,7 +111,11 @@ window.DASH_CONFIG = {
     maxItems: 7,
     refreshMinutes: 30,
     url: "",
-    feeds: [], // optional public .ics URLs (strings) — secrets go in the page
+    // Public/non-secret .ics URLs (strings). Relative paths are served from this
+    // site (no proxy). "tv-shows.ics" is a committed pogdesign TV export — it's a
+    // static snapshot (won't auto-update). For a live, auto-updating TV feed,
+    // paste your pogdesign subscribe URL on the page instead (stays private).
+    feeds: ["tv-shows.ics"],
   },
 
   // ---- Theme ---------------------------------------------------------------

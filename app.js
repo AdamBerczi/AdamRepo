@@ -506,13 +506,16 @@
         if (idx === -1) continue;
         const key = line.slice(0, idx), val = line.slice(idx + 1);
         const name = key.split(";")[0];
-        if (name === "SUMMARY") cur.summary = val;
+        if (name === "SUMMARY") cur.summary = icsUnescape(val);
         else if (name === "DTSTART") cur.start = parseICSDate(val, key);
-        else if (name === "LOCATION") cur.location = val;
+        else if (name === "LOCATION") cur.location = icsUnescape(val);
       }
     }
     return events;
   }
+  // RFC 5545 text-escaping: \n \, \; \\ → newline/comma/semicolon/backslash.
+  const icsUnescape = (s) => s.replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+
   function parseICSDate(val, key) {
     if (/VALUE=DATE/.test(key) || /^\d{8}$/.test(val)) {
       const y = +val.slice(0, 4), m = +val.slice(4, 6) - 1, d = +val.slice(6, 8);
@@ -540,12 +543,16 @@
   }
   function calSource(u) {
     try {
-      const h = new URL(u).hostname.replace(/^www\./, "");
-      if (h.includes("pogdesign")) return "TV";
+      const url = new URL(u, location.href); // resolves relative paths like "tv-shows.ics"
+      const h = url.hostname.replace(/^www\./, "");
+      if (h.includes("pogdesign") || /tv/i.test(url.pathname)) return "TV";
       if (h.includes("google")) return "Cal";
-      return h.split(".")[0];
+      return h.includes("github") ? "" : h.split(".")[0];
     } catch { return ""; }
   }
+  // Same-origin / relative feeds (e.g. a committed .ics) are fetched directly;
+  // cross-origin feeds (Google, pogdesign live) go through the CORS proxy.
+  const calNeedsProxy = (u) => /^https?:\/\//i.test(u) && new URL(u, location.href).origin !== location.origin;
 
   async function loadCalendar() {
     const body = $("calendarBody"), cfg = CFG.calendar || {};
@@ -564,7 +571,7 @@
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const settled = await Promise.allSettled(urls.map(async (u) => {
-        const text = await getText(u, { useProxy: true });
+        const text = await getText(u, { useProxy: calNeedsProxy(u) });
         const src = calSource(u);
         return parseICS(text).map((ev) => ({ ...ev, source: src }));
       }));
