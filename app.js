@@ -407,6 +407,51 @@
   }
 
   /* ========================================================================
+   * Formula 1 — Jolpica (Ergast successor). Keyless, CORS-enabled, no proxy.
+   * Shows the next race + the top of the drivers' championship.
+   * ======================================================================*/
+  async function loadF1() {
+    const body = $("f1Body"), cfg = CFG.f1 || {};
+    if (!cfg.enabled) { $("f1Card").style.display = "none"; return; }
+    try {
+      const base = "https://api.jolpi.ca/ergast/f1/current";
+      const [nextR, standR] = await Promise.allSettled([
+        getJSON(base + "/next.json"),
+        getJSON(base + "/driverStandings.json"),
+      ]);
+      let html = "";
+      if (nextR.status === "fulfilled") {
+        const race = nextR.value?.MRData?.RaceTable?.Races?.[0];
+        if (race) {
+          const dt = race.time ? new Date(`${race.date}T${race.time}`) : new Date(`${race.date}T12:00:00Z`);
+          const when = dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) +
+            (race.time ? ", " + dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "");
+          const loc = [race.Circuit?.Location?.locality, race.Circuit?.Location?.country].filter(Boolean).join(", ");
+          html += `<div class="f1-next">
+            <div class="f1-next__name">${esc(race.raceName)}</div>
+            <div class="f1-next__meta">Round ${esc(race.round)}${loc ? " · " + esc(loc) : ""} · ${esc(when)}</div>
+          </div>`;
+          $("f1Sub").textContent = "next race";
+        }
+      }
+      if (standR.status === "fulfilled") {
+        const list = standR.value?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings || [];
+        const top = list.slice(0, 5).map((d) => `
+          <div class="match">
+            <div class="match__teams"><span class="f1-pos">${esc(d.position)}</span> ${esc(d.Driver?.familyName || "")}
+              <span class="tick__name">${esc(d.Constructors?.[0]?.name || "")}</span></div>
+            <div class="match__score">${esc(d.points)}</div>
+          </div>`).join("");
+        if (top) html += `<div class="league-name">Drivers' Championship</div>${top}`;
+      }
+      if (!html) throw new Error("no f1 data");
+      body.innerHTML = html;
+    } catch (e) {
+      fail(body, "F1 data unavailable (Jolpica/Ergast may be down).");
+    }
+  }
+
+  /* ========================================================================
    * Sports — ESPN public scoreboard API (no key, CORS-enabled)
    * ======================================================================*/
   async function loadSports() {
@@ -567,7 +612,7 @@
    * Orchestration
    * ======================================================================*/
   function refreshAll() {
-    loadWeather(); loadStocks(); loadNews(); loadSports(); loadCalendar();
+    loadWeather(); loadStocks(); loadNews(); loadSports(); loadCalendar(); loadF1();
     $("footStatus").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
   function schedule(fn, minutes) { if (minutes > 0) setInterval(fn, minutes * 60000); }
@@ -582,6 +627,7 @@
     schedule(loadNews, CFG.news?.refreshMinutes || 20);
     schedule(loadSports, CFG.sports?.refreshMinutes || 10);
     schedule(loadCalendar, CFG.calendar?.refreshMinutes || 30);
+    schedule(loadF1, CFG.f1?.refreshMinutes || 60);
     $("refreshBtn").addEventListener("click", refreshAll);
     // Refresh when the tab regains focus after being hidden a while.
     let hidden = 0;

@@ -183,9 +183,10 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 }
 .card--weather  { grid-column: span 2; }
 .card--stocks   { grid-column: span 2; }
-.card--news     { grid-column: span 2; grid-row: span 2; }
+.card--news     { grid-column: span 2; }
 .card--sports   { grid-column: span 2; }
 .card--calendar { grid-column: span 2; }
+.card--f1       { grid-column: span 2; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .card__head h2 { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }
@@ -247,6 +248,12 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 .league-name { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 2px; }
 .league-name:first-child { margin-top: 0; }
 
+/* ---- Formula 1 -----------------------------------------------------------*/
+.f1-next { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.f1-next__name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.f1-next__meta { font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+.f1-pos { color: var(--text-faint); font-variant-numeric: tabular-nums; display: inline-block; min-width: 16px; }
+
 /* ---- Calendar ------------------------------------------------------------*/
 .evt { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .evt:last-child { border-bottom: none; }
@@ -260,12 +267,12 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 /* ---- Responsive ----------------------------------------------------------*/
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  .card--weather, .card--stocks, .card--sports, .card--calendar { grid-column: span 1; }
+  .card--weather, .card--stocks, .card--sports, .card--calendar, .card--f1 { grid-column: span 1; }
   .card--news { grid-column: span 2; grid-row: auto; }
 }
 @media (max-width: 560px) {
   .grid { grid-template-columns: 1fr; }
-  .card, .card--weather, .card--stocks, .card--news, .card--sports, .card--calendar { grid-column: span 1; grid-row: auto; }
+  .card, .card--weather, .card--stocks, .card--news, .card--sports, .card--calendar, .card--f1 { grid-column: span 1; grid-row: auto; }
   .tb-greeting, .tb-date { display: none; }
 }
 
