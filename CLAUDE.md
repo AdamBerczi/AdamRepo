@@ -122,9 +122,13 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   `soccer/hun.1` (NB I.), `basketball/nba`, `football/nfl`, `hockey/nhl`,
   `baseball/mlb`. `team` is a substring used to highlight your club. No proxy
   change needed (ESPN is direct).
-- **Connect the calendar:** Google Calendar → Settings → "Integrate calendar" →
-  "Secret address in iCal format" → paste into `calendar.url`. (`calendar.google.com`
-  is already allowlisted.)
+- **Connect the calendar:** the iCal URL is a **secret**, so it is NOT in
+  `config.js`. On the page, click "＋ Connect Google Calendar" in the Calendar
+  card and paste the "Secret address in iCal format" (Google Calendar → Settings
+  → "Integrate calendar"). It's stored in `localStorage["dash-calendar-url"]`
+  (this browser only) and never committed. Set it per device; "change" in the
+  card header updates or clears it. (`calendar.google.com` is already
+  allowlisted in the proxy.)
 - **Change location:** edit `location` (lat/lon from latlong.net, IANA
   `timezone`, `units: "metric" | "imperial"`).
 - **Add a quick link:** add `{ name, url }` to `links`.
