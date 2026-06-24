@@ -1,0 +1,14 @@
+# Cloudflare Worker config for the start-page CORS proxy.
+#
+# This deploys a NEW, separate Worker — it does NOT touch your existing
+# "gamebook-platform" Worker. After deploying it will be live at:
+#   https://personal-dash-proxy.adam-berczi.workers.dev/
+#
+# Deploy:
+#   cd proxy
+#   npx wrangler login      # one time, opens browser to authorize
+#   npx wrangler deploy
+
+name = "personal-dash-proxy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
