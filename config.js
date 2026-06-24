@@ -27,12 +27,10 @@ window.DASH_CONFIG = {
   // but for reliability host your own (see CLAUDE.md → "Self-hosted proxy").
   // The "{url}" token is replaced with the URL-encoded target.
   //
-  // Set to your own Cloudflare Worker. IMPORTANT: this Worker must implement the
-  // proxy logic from CLAUDE.md (read ?url=, fetch it, add an
-  // Access-Control-Allow-Origin:* header). If it serves something else, the
-  // news/calendar/markets widgets will fail. Fallback public proxy is kept
-  // commented below in case you want to switch back.
-  corsProxy: "https://gamebook-platform.adam-berczi.workers.dev/?url={url}",
+  // Points at the dedicated proxy Worker in /proxy (deploy with
+  // `cd proxy && npx wrangler deploy`). It only proxies the host allowlist in
+  // proxy/worker.js. The public fallback below works without deploying anything.
+  corsProxy: "https://personal-dash-proxy.adam-berczi.workers.dev/?url={url}",
   // corsProxy: "https://api.allorigins.win/raw?url={url}",
 
   // ---- Stocks --------------------------------------------------------------

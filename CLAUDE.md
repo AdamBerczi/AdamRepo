@@ -48,23 +48,29 @@ Deployed via **GitHub Pages** at `https://adamberczi.github.io/adamrepo/`.
   headers, so they go through `CFG.corsProxy`. Default proxy is the public
   `api.allorigins.win`. It works but can be slow or rate-limited.
 
-### Self-hosted proxy (recommended for reliability)
+### Self-hosted proxy (the default)
 
-If news/markets flake out, deploy a tiny Cloudflare Worker and point
-`config.js → corsProxy` at it (`"https://your-worker.workers.dev/?url={url}"`):
+A ready-to-deploy Cloudflare Worker lives in **`/proxy`** (`worker.js` +
+`wrangler.toml`). It reads `?url=`, fetches the target, and adds CORS headers —
+but only for hostnames in its `ALLOWED_HOSTS` allowlist, so it can't be abused
+as an open proxy. `config.js → corsProxy` already points at it
+(`https://personal-dash-proxy.adam-berczi.workers.dev/?url={url}`).
 
-```js
-export default {
-  async fetch(req) {
-    const target = new URL(req.url).searchParams.get("url");
-    if (!target) return new Response("missing url", { status: 400 });
-    const r = await fetch(target, { headers: { "User-Agent": "Mozilla/5.0" } });
-    const h = new Headers(r.headers);
-    h.set("Access-Control-Allow-Origin", "*");
-    return new Response(r.body, { status: r.status, headers: h });
-  },
-};
+Deploy / update it:
+
+```bash
+cd proxy
+npx wrangler login     # one time
+npx wrangler deploy
 ```
+
+It deploys as a **separate** Worker named `personal-dash-proxy` and does **not**
+touch any other Worker on the account. **When you add a new news feed, calendar,
+or stock source to `config.js`, add its hostname to `ALLOWED_HOSTS` in
+`proxy/worker.js` and redeploy**, or the proxy will return 403 for it.
+
+If you don't want to deploy anything, uncomment the `api.allorigins.win`
+fallback line in `config.js` — it works out of the box but can be slow.
 
 ## Common edits
 
