@@ -290,6 +290,31 @@
     body.innerHTML = summary + rows;
   }
 
+  // Quotes via Yahoo's v8 chart endpoint (one request per symbol). Unlike the
+  // old v7 /finance/quote, v8 /finance/chart needs no session "crumb"/cookie, so
+  // it works reliably through the proxy. Returns objects shaped like the fields
+  // renderTick/renderPortfolio expect.
+  async function fetchQuotes(symbols) {
+    const settled = await Promise.allSettled(symbols.map(async (sym) => {
+      const u = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`;
+      const d = await getJSON(u, { useProxy: true });
+      const r = d?.chart?.result?.[0];
+      const m = r?.meta;
+      if (!m || m.regularMarketPrice == null) throw new Error("no data: " + sym);
+      const price = m.regularMarketPrice;
+      const prev = m.chartPreviousClose ?? m.previousClose ?? price;
+      return {
+        symbol: m.symbol || sym,
+        shortName: m.shortName || m.longName || m.exchangeName || "",
+        regularMarketPrice: price,
+        regularMarketChange: prev != null ? price - prev : 0,
+        regularMarketChangePercent: prev ? ((price - prev) / prev) * 100 : 0,
+        currency: m.currency || "USD",
+      };
+    }));
+    return settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+  }
+
   async function loadStocks() {
     const body = $("stocksBody"), cfg = CFG.stocks || {};
     const holdings = getPortfolio(), watch = cfg.symbols || [];
@@ -302,10 +327,7 @@
     const mb = $("pfManage"); if (mb) mb.onclick = (e) => { e.preventDefault(); managePortfolio(); };
 
     try {
-      const url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" +
-        encodeURIComponent(symbols.join(","));
-      const d = await getJSON(url, { useProxy: true });
-      const rows = d?.quoteResponse?.result || [];
+      const rows = await fetchQuotes(symbols);
       if (!rows.length) throw new Error("no data");
       if (title) title.textContent = holdings.length ? "Portfolio" : "Markets";
       if (holdings.length) {
@@ -314,7 +336,7 @@
         body.innerHTML = rows.map(renderTick).join("");
       }
     } catch (e) {
-      fail(body, "Markets unavailable. The stock source may be rate-limited (deploy the proxy); see CLAUDE.md.");
+      fail(body, "Markets unavailable — the quote source couldn't be reached. Make sure the CORS proxy is deployed (or use the allorigins fallback in config.js). See CLAUDE.md.");
     }
   }
 
