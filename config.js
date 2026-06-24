@@ -26,7 +26,14 @@ window.DASH_CONFIG = {
   // through a proxy. The default is a public proxy — fine for personal use,
   // but for reliability host your own (see CLAUDE.md → "Self-hosted proxy").
   // The "{url}" token is replaced with the URL-encoded target.
-  corsProxy: "https://api.allorigins.win/raw?url={url}",
+  //
+  // Set to your own Cloudflare Worker. IMPORTANT: this Worker must implement the
+  // proxy logic from CLAUDE.md (read ?url=, fetch it, add an
+  // Access-Control-Allow-Origin:* header). If it serves something else, the
+  // news/calendar/markets widgets will fail. Fallback public proxy is kept
+  // commented below in case you want to switch back.
+  corsProxy: "https://gamebook-platform.adam-berczi.workers.dev/?url={url}",
+  // corsProxy: "https://api.allorigins.win/raw?url={url}",
 
   // ---- Stocks --------------------------------------------------------------
   // Add ticker symbols you want to watch. For non-US exchanges use the Yahoo
