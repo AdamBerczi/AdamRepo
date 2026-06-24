@@ -368,11 +368,14 @@
       );
       let all = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value);
       if (!all.length) throw new Error("no items");
-      all.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+      // Float explicit "breaking" items to the top, then sort by recency.
+      const isBreaking = (t) => /\bbreaking\b/i.test(t || "");
+      all.forEach((n) => { n.breaking = isBreaking(n.title); });
+      all.sort((a, b) => (b.breaking - a.breaking) || ((b.date?.getTime() || 0) - (a.date?.getTime() || 0)));
       all = all.slice(0, cfg.maxItems || 8);
       body.innerHTML = `<div class="feed">${all.map((n) => `
         <div class="feed__item">
-          <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>
+          <a href="${esc(n.link)}" target="_blank" rel="noopener">${n.breaking ? `<span class="brk">Breaking</span> ` : ""}${esc(n.title)}</a>
           <div class="feed__meta"><span>${esc(n.source)}</span>${n.date ? `<span>· ${relTime(n.date)}</span>` : ""}</div>
         </div>`).join("")}</div>`;
     } catch (e) {

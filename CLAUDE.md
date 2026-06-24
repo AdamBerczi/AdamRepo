@@ -134,8 +134,9 @@ touches nothing else on the account.
 
 ⚠️ **When you add a new news feed, calendar, or stock source to `config.js`, also
 add its hostname to `ALLOWED_HOSTS` in `proxy/worker.js` and redeploy**, or the
-proxy returns 403 for that host. Current allowlist: Yahoo Finance, BBC, The
-Verge, Hacker News (hnrss.org), Google Calendar, pogdesign.co.uk (TV calendar).
+proxy returns 403 for that host. Current allowlist: Yahoo Finance, BBC,
+Al Jazeera, NPR, The Verge, Hacker News (hnrss.org), Google Calendar,
+pogdesign.co.uk (TV calendar).
 
 No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
 
@@ -155,7 +156,9 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   Mixed currencies are summed per-currency. Uses the same Yahoo quote feed (so
   it needs the proxy deployed).
 - **Add a news feed:** add `{ name, url }` to `news.feeds`, **then add the feed's
-  hostname to `ALLOWED_HOSTS` and redeploy the proxy.**
+  hostname to `ALLOWED_HOSTS` and redeploy the proxy.** News is set to
+  English breaking/important top-story feeds (BBC, Al Jazeera, NPR); titles
+  containing "breaking" are floated to the top and get a Breaking badge.
 - **Add a sports league:** add `{ name, path, team }` to `sports.leagues`. `path`
   is the ESPN slug — `soccer/eng.1` (Premier League), `soccer/uefa.champions`,
   `soccer/hun.1` (NB I.), `basketball/nba`, `football/nfl`, `hockey/nhl`,

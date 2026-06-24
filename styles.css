@@ -234,6 +234,7 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 .feed__item a { color: var(--text); text-decoration: none; font-size: 14px; line-height: 1.4; display: block; }
 .feed__item a:hover { color: var(--accent); }
 .feed__meta { color: var(--text-faint); font-size: 11px; margin-top: 4px; display: flex; gap: 8px; }
+.brk { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--down); border: 1px solid color-mix(in srgb, var(--down) 50%, transparent); border-radius: 5px; padding: 1px 5px; vertical-align: 1px; }
 
 /* ---- Sports --------------------------------------------------------------*/
 .match { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); gap: 10px; }

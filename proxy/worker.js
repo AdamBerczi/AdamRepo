@@ -14,8 +14,10 @@
 const ALLOWED_HOSTS = [
   "query1.finance.yahoo.com", // stocks
   "query2.finance.yahoo.com",
-  "feeds.bbci.co.uk",         // news
-  "www.theverge.com",
+  "feeds.bbci.co.uk",         // news (BBC top stories)
+  "aljazeera.com",            // news (Al Jazeera)
+  "npr.org",                  // news (NPR top stories)
+  "www.theverge.com",         // optional tech feeds
   "hnrss.org",
   "calendar.google.com",      // calendar (.ics)
   "pogdesign.co.uk",          // pogdesign TV calendar (.ics)
