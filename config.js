@@ -43,15 +43,19 @@ window.DASH_CONFIG = {
   },
 
   // ---- News ----------------------------------------------------------------
-  // Any RSS/Atom feed URL works. Headlines are merged and sorted by date.
+  // English-language breaking / important headlines. These are top-story /
+  // front-page feeds (editorially curated for importance), merged and sorted by
+  // recency; items whose title contains "breaking" are floated to the top.
+  // Any RSS/Atom URL works — but add its hostname to ALLOWED_HOSTS in
+  // proxy/worker.js (and redeploy) or the proxy returns 403.
   news: {
     enabled: true,
     maxItems: 9,
-    refreshMinutes: 20,
+    refreshMinutes: 15,
     feeds: [
-      { name: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
-      { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
-      { name: "Hacker News", url: "https://hnrss.org/frontpage" },
+      { name: "BBC", url: "https://feeds.bbci.co.uk/news/rss.xml" },          // Top stories
+      { name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml" },
+      { name: "NPR", url: "https://feeds.npr.org/1001/rss.xml" },              // Top stories
     ],
   },
 
