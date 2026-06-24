@@ -1,0 +1,224 @@
+/* =============================================================================
+ * styles.css — minimalist, stylish start page
+ * Dark-first with an automatic light theme. Single accent. Generous space.
+ * ===========================================================================*/
+
+:root {
+  --bg: #0e0f13;
+  --bg-elev: #16181f;
+  --bg-hover: #1d2029;
+  --line: #262a35;
+  --text: #e7e9ee;
+  --text-dim: #9aa0ad;
+  --text-faint: #646b7a;
+  --accent: #7c9cff;
+  --accent-soft: #7c9cff22;
+  --up: #4ade80;
+  --down: #f87171;
+  --radius: 16px;
+  --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 30px rgba(0,0,0,0.35);
+  --gap: 18px;
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --bg-elev: #ffffff;
+  --bg-hover: #eef0f4;
+  --line: #e4e7ec;
+  --text: #1a1d23;
+  --text-dim: #5b6470;
+  --text-faint: #98a1ad;
+  --accent: #3b5bdb;
+  --accent-soft: #3b5bdb14;
+  --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px rgba(16,24,40,0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image: radial-gradient(1200px 600px at 80% -10%, var(--accent-soft), transparent 60%);
+}
+
+.dash {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px) clamp(18px, 4vw, 40px) 40px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 34px);
+  min-height: 100%;
+}
+
+/* ---- Header --------------------------------------------------------------*/
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.head__left { display: flex; flex-direction: column; gap: 2px; }
+.head__right { display: flex; align-items: center; gap: 14px; }
+
+.clock {
+  font-size: clamp(40px, 8vw, 68px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.clock span { color: var(--text-faint); font-weight: 400; }
+.greeting { color: var(--text-dim); font-size: 16px; margin-top: 4px; }
+.date { color: var(--text-dim); font-size: 14px; text-align: right; }
+
+.ghost-btn {
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  width: 40px; height: 40px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background .15s, color .15s, transform .1s;
+}
+.ghost-btn:hover { background: var(--bg-hover); color: var(--text); }
+.ghost-btn:active { transform: scale(0.94); }
+.ghost-btn--sm { width: auto; height: auto; padding: 5px 11px; font-size: 12px; border-radius: 9px; }
+
+/* ---- Search --------------------------------------------------------------*/
+.search { width: 100%; }
+.search__input {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 16px;
+  font-family: var(--font);
+  padding: 16px 20px;
+  outline: none;
+  box-shadow: var(--shadow);
+  transition: border-color .15s, box-shadow .15s;
+}
+.search__input::placeholder { color: var(--text-faint); }
+.search__input:focus { border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft); }
+
+/* ---- Grid ----------------------------------------------------------------*/
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--gap);
+}
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 160px;
+}
+/* Layout: weather + stocks on top row; news tall; sports + calendar; links wide */
+.card--weather  { grid-column: span 2; }
+.card--stocks   { grid-column: span 2; }
+.card--news     { grid-column: span 2; grid-row: span 2; }
+.card--sports   { grid-column: span 2; }
+.card--calendar { grid-column: span 2; }
+.card--links    { grid-column: span 4; min-height: auto; }
+
+.card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.card__head h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+.card__sub { font-size: 12px; color: var(--text-faint); }
+.card__body { flex: 1; }
+
+.skeleton { color: var(--text-faint); font-size: 14px; }
+.err { color: var(--down); font-size: 13px; line-height: 1.5; }
+.err a { color: var(--accent); }
+
+/* ---- Weather -------------------------------------------------------------*/
+.wx-now { display: flex; align-items: center; gap: 16px; }
+.wx-temp { font-size: 46px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
+.wx-icon { font-size: 40px; }
+.wx-desc { color: var(--text-dim); font-size: 14px; }
+.wx-meta { color: var(--text-faint); font-size: 12px; margin-top: 2px; }
+.wx-days { display: flex; justify-content: space-between; margin-top: 14px; gap: 6px; }
+.wx-day { text-align: center; flex: 1; }
+.wx-day b { display: block; font-size: 12px; color: var(--text-faint); font-weight: 500; }
+.wx-day .ico { font-size: 20px; margin: 4px 0; }
+.wx-day .t { font-size: 13px; font-variant-numeric: tabular-nums; }
+.wx-day .t i { color: var(--text-faint); font-style: normal; }
+
+/* ---- Stocks --------------------------------------------------------------*/
+.tick { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.tick:last-child { border-bottom: none; }
+.tick__sym { font-weight: 600; font-size: 14px; }
+.tick__name { color: var(--text-faint); font-size: 11px; }
+.tick__right { text-align: right; font-variant-numeric: tabular-nums; }
+.tick__price { font-size: 14px; }
+.tick__chg { font-size: 12px; }
+.up { color: var(--up); }
+.down { color: var(--down); }
+
+/* ---- News ----------------------------------------------------------------*/
+.feed { display: flex; flex-direction: column; }
+.feed__item { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.feed__item:last-child { border-bottom: none; }
+.feed__item a { color: var(--text); text-decoration: none; font-size: 14px; line-height: 1.4; display: block; }
+.feed__item a:hover { color: var(--accent); }
+.feed__meta { color: var(--text-faint); font-size: 11px; margin-top: 4px; display: flex; gap: 8px; }
+
+/* ---- Sports --------------------------------------------------------------*/
+.match { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); gap: 10px; }
+.match:last-child { border-bottom: none; }
+.match__teams { font-size: 13px; line-height: 1.45; }
+.match__teams .mine { color: var(--accent); font-weight: 600; }
+.match__score { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.match__when { color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+.match__live { color: var(--down); font-weight: 600; }
+.league-name { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 2px; }
+.league-name:first-child { margin-top: 0; }
+
+/* ---- Calendar ------------------------------------------------------------*/
+.evt { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.evt:last-child { border-bottom: none; }
+.evt__date { text-align: center; min-width: 38px; }
+.evt__date b { display: block; font-size: 17px; font-weight: 650; line-height: 1; }
+.evt__date span { font-size: 10px; color: var(--text-faint); text-transform: uppercase; }
+.evt__body { font-size: 13px; line-height: 1.4; }
+.evt__time { color: var(--text-faint); font-size: 11px; }
+
+/* ---- Links ---------------------------------------------------------------*/
+.links { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.link {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 11px;
+  padding: 11px 13px; text-decoration: none; color: var(--text); font-size: 13px;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+.link:hover { background: var(--bg-hover); border-color: var(--accent); transform: translateY(-1px); }
+.link__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+
+/* ---- Footer --------------------------------------------------------------*/
+.foot { display: flex; align-items: center; justify-content: space-between; color: var(--text-faint); font-size: 12px; margin-top: auto; }
+
+/* ---- Responsive ----------------------------------------------------------*/
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  .card--weather, .card--stocks, .card--sports, .card--calendar { grid-column: span 1; }
+  .card--news { grid-column: span 2; grid-row: auto; }
+  .card--links { grid-column: span 2; }
+}
+@media (max-width: 560px) {
+  .grid { grid-template-columns: 1fr; }
+  .card, .card--weather, .card--stocks, .card--news, .card--sports, .card--calendar, .card--links { grid-column: span 1; grid-row: auto; }
+  .head { flex-direction: row; }
+  .date { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
