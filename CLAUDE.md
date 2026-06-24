@@ -13,31 +13,42 @@ with live widgets (weather, markets, news, sports, calendar, links, clock,
 search). Zero build step: plain HTML/CSS/JS, no framework, no dependencies.
 Open `index.html` and it runs.
 
-**Status:** ✅ Built and merged to `master`. The page works today.
+**Status:** ✅ **Live in production.** Merged to `master` and published via
+GitHub Pages at **https://adamberczi.github.io/AdamRepo/** (Pages is enabled,
+serving `master` / root). Current look: a dynamic time-of-day + weather **scene**
+background with **glassmorphic** widgets, hero clock, serif-italic greeting.
+Features include weather, a markets watchlist that becomes a **portfolio**
+tracker (value + day change + gain/loss), news, sports, calendar, links, search.
+The owner reviews changes on the live site and gives feedback to iterate.
 
-**Two things left to do (both require the owner's accounts — Claude can't do them
-from a sandbox):**
+**Workflow:** develop on a feature branch → merge to `master` → push. Pages
+auto-deploys in ~1 min (hard-refresh `Ctrl+Shift+R` to dodge CSS/JS caching).
 
-1. **Deploy the CORS proxy Worker** (needed for News, Calendar, Markets — Weather
-   and Sports work without it). On the owner's machine:
+**One owner-only action left** (the page works without it — Weather + Sports
+need nothing; News, Markets, Calendar use the proxy):
+
+1. **Deploy the CORS proxy Worker.** On the owner's machine:
    ```bash
    cd proxy
    npx wrangler login      # one-time browser auth to Cloudflare
    npx wrangler deploy
    ```
-   This publishes a **separate** Worker named `personal-dash-proxy` to
+   Publishes a **separate** Worker `personal-dash-proxy` to
    `https://personal-dash-proxy.adam-berczi.workers.dev/` — the URL `config.js`
-   already points at. It does **not** touch the existing `gamebook-platform`
+   already points at. Does **not** touch the existing `gamebook-platform`
    Worker. *(No-deploy alternative: uncomment the `api.allorigins.win` fallback
-   line in `config.js` — works instantly, but slower/rate-limited.)*
+   line in `config.js`.)*
 
-2. **Enable GitHub Pages** to go live: repo **Settings → Pages → Deploy from
-   branch → `master` / root**. Page will be at
-   `https://adamberczi.github.io/adamrepo/`. Then set it as the browser
-   home/new-tab page.
+**Per-device setup the owner does in the browser (secrets never committed):**
+- **Calendar:** click "＋ Connect Google Calendar" → paste the secret iCal URL
+  (stored in `localStorage["dash-calendar-url"]`).
+- **Portfolio:** click "＋ holdings" in the Markets card → paste
+  `SYMBOL SHARES [AVG_COST]` lines (stored in `localStorage["dash-portfolio"]`).
 
-**Most likely next requests:** add/remove widgets, restyle, add stocks/feeds/
-teams, wire the calendar. All of that = edit `config.js` (see "Common edits").
+**Most likely next requests:** design tweaks from live feedback (scene palettes,
+glass intensity, type, layout), add/remove widgets, add stocks/feeds/teams.
+Most content changes = edit `config.js` (see "Common edits"); design = `styles.css`
++ `sceneFor` in `app.js`.
 
 ---
 
