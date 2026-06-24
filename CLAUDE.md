@@ -112,9 +112,17 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
 
 ## Common edits (all in `config.js` unless noted)
 
-- **Add a stock:** push a Yahoo symbol to `stocks.symbols` (suffixes: `.BU`
-  Budapest, `.L` London, `.DE` Frankfurt; crypto like `BTC-USD`). If it's a new
-  host it still goes through `query1.finance.yahoo.com`, already allowlisted.
+- **Add a stock (watchlist):** push a Yahoo symbol to `stocks.symbols` (suffixes:
+  `.BU` Budapest, `.L` London, `.DE` Frankfurt; crypto like `BTC-USD`). It goes
+  through `query1.finance.yahoo.com`, already allowlisted. The watchlist shows
+  only when no portfolio holdings are set.
+- **Portfolio:** holdings are a *private* figure, so they are NOT in `config.js`.
+  On the page, the Markets/Portfolio card shows "＋ holdings" / "edit" — paste
+  lines of `SYMBOL SHARES [AVG_COST]` (e.g. `AAPL 10 150.25`). Stored in
+  `localStorage["dash-portfolio"]` (this browser only), never committed. With an
+  avg cost it computes total gain/loss; without it, just value + day change.
+  Mixed currencies are summed per-currency. Uses the same Yahoo quote feed (so
+  it needs the proxy deployed).
 - **Add a news feed:** add `{ name, url }` to `news.feeds`, **then add the feed's
   hostname to `ALLOWED_HOSTS` and redeploy the proxy.**
 - **Add a sports league:** add `{ name, path, team }` to `sports.leagues`. `path`
