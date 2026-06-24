@@ -294,12 +294,24 @@
   async function loadCalendar() {
     const body = $("calendarBody"), cfg = CFG.calendar || {};
     if (!cfg.enabled) { $("calendarCard").style.display = "none"; return; }
-    if (!cfg.url) {
-      body.innerHTML = `<div class="skeleton">Add your calendar's secret iCal URL in <b>config.js</b> to see upcoming events.</div>`;
+    // The calendar URL is a *secret* (anyone with it can read your calendar), so
+    // it is stored only in this browser's localStorage — never committed. The
+    // config.js value, if any, is just a fallback.
+    const url = localStorage.getItem("dash-calendar-url") || cfg.url;
+    $("calSub").innerHTML = url
+      ? `<a href="#" id="calEdit">change</a>`
+      : "";
+    const editBtn = $("calEdit");
+    if (editBtn) editBtn.onclick = (e) => { e.preventDefault(); connectCalendar(); };
+
+    if (!url) {
+      body.innerHTML = `<div class="skeleton">No calendar connected.<br>
+        <button class="ghost-btn ghost-btn--sm" id="calConnect" style="margin-top:10px">＋ Connect Google Calendar</button></div>`;
+      $("calConnect").onclick = connectCalendar;
       return;
     }
     try {
-      const text = await getText(cfg.url, { useProxy: true });
+      const text = await getText(url, { useProxy: true });
       const now = new Date();
       const events = parseICS(text)
         .filter((e) => e.start && e.start.date >= new Date(now.getFullYear(), now.getMonth(), now.getDate()))
@@ -317,8 +329,27 @@
         </div>`;
       }).join("");
     } catch (e) {
-      fail(body, "Calendar unavailable. Confirm the iCal URL and proxy in config.js.");
+      fail(body, `Calendar unavailable. Check the URL (<a href="#" id="calEdit2">change</a>) and that the proxy allows calendar.google.com.`);
+      const b2 = $("calEdit2"); if (b2) b2.onclick = (ev) => { ev.preventDefault(); connectCalendar(); };
     }
+  }
+
+  // Prompt for the secret iCal URL and store it locally (never committed).
+  function connectCalendar() {
+    const current = localStorage.getItem("dash-calendar-url") || "";
+    const input = prompt(
+      "Paste your Google Calendar SECRET iCal URL.\n" +
+      "(Google Calendar → Settings → your calendar → 'Integrate calendar' → " +
+      "'Secret address in iCal format'.)\n\n" +
+      "Stored only in this browser. Leave blank to disconnect.",
+      current
+    );
+    if (input === null) return; // cancelled
+    let v = input.trim().replace(/^webcal:\/\//i, "https://");
+    if (!v) { localStorage.removeItem("dash-calendar-url"); loadCalendar(); return; }
+    if (!/^https:\/\//i.test(v)) { alert("That doesn't look like an https URL."); return; }
+    localStorage.setItem("dash-calendar-url", v);
+    loadCalendar();
   }
 
   /* ========================================================================

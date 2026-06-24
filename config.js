@@ -70,14 +70,17 @@ window.DASH_CONFIG = {
   },
 
   // ---- Calendar ------------------------------------------------------------
-  // Paste the **secret iCal address** of a Google Calendar (Calendar settings
-  // → "Integrate calendar" → "Secret address in iCal format"), or any public
-  // .ics URL. Leave url empty to hide the widget.
+  // Your Google Calendar's iCal address is a SECRET (anyone with it can read
+  // your calendar), so it is NOT stored here. Connect it from the page itself:
+  // click "＋ Connect Google Calendar" in the Calendar card and paste the
+  // "Secret address in iCal format" (Calendar settings → "Integrate calendar").
+  // It is saved only in your browser's localStorage and never committed.
+  // The `url` below is just an optional public fallback — leave it empty.
   calendar: {
     enabled: true,
     maxItems: 6,
     refreshMinutes: 30,
-    url: "", // e.g. "https://calendar.google.com/calendar/ical/.../basic.ics"
+    url: "",
   },
 
   // ---- Quick links ---------------------------------------------------------
