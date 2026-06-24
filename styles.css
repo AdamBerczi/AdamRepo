@@ -184,9 +184,8 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 .card--weather  { grid-column: span 2; }
 .card--stocks   { grid-column: span 2; }
 .card--news     { grid-column: span 2; }
-.card--sports   { grid-column: span 2; }
 .card--calendar { grid-column: span 2; }
-.card--f1       { grid-column: span 2; }
+.card--f1       { grid-column: span 4; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .card__head h2 { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }
@@ -249,10 +248,19 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 .league-name:first-child { margin-top: 0; }
 
 /* ---- Formula 1 -----------------------------------------------------------*/
-.f1-next { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
-.f1-next__name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.f1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.f1-left { display: flex; flex-direction: column; }
+.f1-next__label { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-faint); }
+.f1-next__name { font-size: 18px; font-weight: 650; letter-spacing: -0.01em; margin-top: 2px; }
 .f1-next__meta { font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+.f1-quali { margin-top: auto; padding-top: 14px; font-size: 13px; color: var(--text-dim); }
+.f1-quali b { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 650; display: block; margin: 3px 0; letter-spacing: -0.02em; }
+.f1-quali__at { font-size: 11px; color: var(--text-faint); }
+.f1-tabs { display: inline-flex; gap: 4px; padding: 3px; margin-bottom: 8px; border: 1px solid var(--glass-border); border-radius: 10px; }
+.f1-tab { background: none; border: none; color: var(--text-dim); font: inherit; font-size: 12px; padding: 4px 11px; border-radius: 7px; cursor: pointer; transition: background .15s, color .15s; }
+.f1-tab.is-on { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--text); }
 .f1-pos { color: var(--text-faint); font-variant-numeric: tabular-nums; display: inline-block; min-width: 16px; }
+.f1-team { display: inline-block; width: 9px; height: 9px; border-radius: 3px; background: var(--c); margin: 0 6px 0 2px; box-shadow: 0 0 7px color-mix(in srgb, var(--c) 55%, transparent); }
 
 /* ---- Calendar ------------------------------------------------------------*/
 .evt { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -267,12 +275,14 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 /* ---- Responsive ----------------------------------------------------------*/
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  .card--weather, .card--stocks, .card--sports, .card--calendar, .card--f1 { grid-column: span 1; }
-  .card--news { grid-column: span 2; grid-row: auto; }
+  .card--weather, .card--stocks, .card--calendar { grid-column: span 1; }
+  .card--news, .card--f1 { grid-column: span 2; grid-row: auto; }
+  .f1-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
   .grid { grid-template-columns: 1fr; }
-  .card, .card--weather, .card--stocks, .card--news, .card--sports, .card--calendar, .card--f1 { grid-column: span 1; grid-row: auto; }
+  .card, .card--weather, .card--stocks, .card--news, .card--calendar, .card--f1 { grid-column: span 1; grid-row: auto; }
+  .f1-grid { grid-template-columns: 1fr; }
   .tb-greeting, .tb-date { display: none; }
 }
 

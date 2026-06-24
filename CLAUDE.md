@@ -9,8 +9,8 @@ read the "Pick up here" section first, then the rest fills in the details.
 ## ⭐ Pick up here (current state & next actions)
 
 **What this repo is:** a personal browser **start page** — a minimalist dashboard
-with live widgets (weather, markets, news, sports, calendar, links, clock,
-search). Zero build step: plain HTML/CSS/JS, no framework, no dependencies.
+with live widgets (weather, markets/portfolio, news, calendar, Formula 1, clock).
+Zero build step: plain HTML/CSS/JS, no framework, no dependencies.
 Open `index.html` and it runs.
 
 **Status:** ✅ **Live in production.** Merged to `master` and published via
@@ -18,13 +18,14 @@ GitHub Pages at **https://adamberczi.github.io/AdamRepo/** (Pages is enabled,
 serving `master` / root). Current look: a dynamic time-of-day + weather **scene**
 background with **glassmorphic** widgets, hero clock, serif-italic greeting.
 Features include weather, a markets watchlist that becomes a **portfolio**
-tracker (value + day change + gain/loss), news, sports, calendar, links, search.
-The owner reviews changes on the live site and gives feedback to iterate.
+tracker (value + day change + gain/loss), breaking news, a multi-feed calendar
+(incl. live pogdesign TV), and a Formula 1 card (next race, qualifying countdown,
+standings tabs). The owner reviews changes on the live site and iterates.
 
 **Workflow:** develop on a feature branch → merge to `master` → push. Pages
 auto-deploys in ~1 min (hard-refresh `Ctrl+Shift+R` to dodge CSS/JS caching).
 
-**One owner-only action left** (the page works without it — Weather + Sports
+**One owner-only action left** (the page works without it — Weather + F1
 need nothing; News, Markets, Calendar use the proxy):
 
 1. **Deploy the CORS proxy Worker.** On the owner's machine:
@@ -114,12 +115,13 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
 ## Data sources (and their quirks)
 
 - **Weather — Open-Meteo.** No key, CORS-friendly, called directly. Reliable.
-- **Sports — ESPN public API** (`site.api.espn.com/.../scoreboard`). No key,
-  CORS-enabled, called directly.
 - **Formula 1 — Jolpica/Ergast** (`api.jolpi.ca/ergast/f1/...`). No key,
-  CORS-enabled, called directly. Shows next race + drivers' standings. (F1
-  *Fantasy* has no free public API — official needs login, the community scrape
-  is stale; only paid APIs cover fantasy prices/points.)
+  CORS-enabled, called directly. Shows the next race, a live **countdown to
+  qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
+  standings tabs with team-colour icons (`F1_TEAM` map). The card is
+  double-width (`.card--f1` span 4) with a two-column `.f1-grid`. (F1 *Fantasy*
+  has no free public API — official needs login, the community scrape is stale;
+  only paid APIs cover fantasy prices/points.)
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
 
@@ -166,25 +168,18 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   hostname to `ALLOWED_HOSTS` and redeploy the proxy.** News is set to
   English breaking/important top-story feeds (BBC, Al Jazeera, NPR); titles
   containing "breaking" are floated to the top and get a Breaking badge.
-- **Add a sports league:** add `{ name, path, team }` to `sports.leagues`. `path`
-  is the ESPN slug — `soccer/eng.1` (Premier League), `soccer/uefa.champions`,
-  `soccer/hun.1` (NB I.), `basketball/nba`, `football/nfl`, `hockey/nhl`,
-  `baseball/mlb`. `team` is a substring used to highlight your club. No proxy
-  change needed (ESPN is direct).
-- **Connect calendars (multi-feed):** iCal URLs are **secret**, so they are NOT
-  in `config.js`. On the page, click "＋ Connect calendar" and paste **one URL
-  per line** — multiple feeds are merged, sorted, and tagged by source.
-  Supported sources: Google ("Integrate calendar" → "Secret address in iCal
-  format") and **pogdesign TV** (`pogdesign.co.uk/cat` → pick shows → copy the
-  iCal subscribe URL; host is allowlisted). Stored in
-  `localStorage["dash-calendar-urls"]` (this browser only), never committed;
-  "edit" in the card header updates/clears. Any new host still needs adding to
-  `ALLOWED_HOSTS`.
-  - *Committed feeds:* `calendar.feeds` in `config.js` takes public .ics URLs.
-    Relative paths are served same-origin (no proxy) — e.g. `tv-shows.ics`, a
-    committed pogdesign export. ⚠️ That file is a **static snapshot** (won't
-    auto-update; events age out); for a live feed paste the subscribe URL on the
-    page. Cross-origin feeds use the proxy (`calNeedsProxy`); same-origin don't.
+- **Connect calendars (multi-feed):** events from all feeds are merged, sorted,
+  and tagged by source. Two ways to add feeds:
+  - *Committed (public):* `calendar.feeds` in `config.js` — array of .ics URL
+    strings. The live **pogdesign TV** calendar is here
+    (`https://www.pogdesign.co.uk/cat/view/<user>` is the iCal feed, auto-updating;
+    host allowlisted). Relative paths (e.g. `something.ics` in the repo) are
+    fetched same-origin with no proxy; cross-origin feeds use the proxy
+    (`calNeedsProxy`).
+  - *Private (per browser):* secret iCal URLs (e.g. a Google "Secret address in
+    iCal format") go on the page via "＋ Connect calendar", one per line — stored
+    in `localStorage["dash-calendar-urls"]`, never committed. Any new host still
+    needs adding to `ALLOWED_HOSTS` if you later switch off allorigins.
 - **Change location:** edit `location` (lat/lon from latlong.net, IANA
   `timezone`, `units: "metric" | "imperial"`).
 

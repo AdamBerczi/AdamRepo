@@ -75,20 +75,6 @@ window.DASH_CONFIG = {
     ],
   },
 
-  // ---- Sports --------------------------------------------------------------
-  // Powered by ESPN's public scoreboard API (no key needed). Each entry is a
-  // league; the widget shows recent/live/upcoming games and highlights your
-  // team. Find league slugs in CLAUDE.md → "Sports leagues".
-  sports: {
-    enabled: true,
-    refreshMinutes: 10,
-    leagues: [
-      { name: "Premier League", path: "soccer/eng.1", team: "Arsenal" },
-      { name: "Champions League", path: "soccer/uefa.champions", team: "" },
-      { name: "NBA", path: "basketball/nba", team: "Lakers" },
-    ],
-  },
-
   // ---- Formula 1 -----------------------------------------------------------
   // Next race + drivers' championship via the Jolpica (Ergast) API. Keyless,
   // CORS-enabled, no proxy needed. NB: F1 *Fantasy* has no free public API, so
@@ -112,10 +98,9 @@ window.DASH_CONFIG = {
     refreshMinutes: 30,
     url: "",
     // Public/non-secret .ics URLs (strings). Relative paths are served from this
-    // site (no proxy). "tv-shows.ics" is a committed pogdesign TV export — it's a
-    // static snapshot (won't auto-update). For a live, auto-updating TV feed,
-    // paste your pogdesign subscribe URL on the page instead (stays private).
-    feeds: ["tv-shows.ics"],
+    // site (no proxy); cross-origin feeds go through the proxy. This is the live
+    // pogdesign TV calendar (auto-updating; /cat/view/<user> is the iCal feed).
+    feeds: ["https://www.pogdesign.co.uk/cat/view/AdamCorvus"],
   },
 
   // ---- Theme ---------------------------------------------------------------

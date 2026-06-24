@@ -408,85 +408,108 @@
 
   /* ========================================================================
    * Formula 1 — Jolpica (Ergast successor). Keyless, CORS-enabled, no proxy.
-   * Shows the next race + the top of the drivers' championship.
+   * Next race + a live countdown to qualifying, with Drivers/Constructors tabs.
    * ======================================================================*/
+  // Constructor brand colours, used as team "icons" (Ergast constructorId keys).
+  const F1_TEAM = {
+    red_bull: "#3671C6", ferrari: "#E8002D", mercedes: "#27F4D2", mclaren: "#FF8000",
+    aston_martin: "#229971", alpine: "#0093CC", williams: "#64C4FF", rb: "#6692FF",
+    sauber: "#52E252", haas: "#B6BABD", audi: "#009597", cadillac: "#B58842",
+    alphatauri: "#5E8FAA", alfa: "#C92D4B",
+  };
+  const teamColor = (id) => F1_TEAM[id] || "#9aa0ad";
+  const teamIcon = (id) => `<span class="f1-team" style="--c:${teamColor(id)}"></span>`;
+
+  const f1State = { drivers: [], constructors: [], tab: "drivers", quali: null, qualiLabel: "" };
+
+  function fmtCountdown(ms) {
+    let s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400); s -= d * 86400;
+    const h = Math.floor(s / 3600); s -= h * 3600;
+    const m = Math.floor(s / 60); s -= m * 60;
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    return `${m}m ${s}s`;
+  }
+  function updateQualiCountdown() {
+    const el = document.getElementById("f1Count");
+    if (!el || !f1State.quali) return;
+    const diff = f1State.quali.getTime() - Date.now();
+    el.textContent = diff > 0 ? fmtCountdown(diff) : "underway";
+  }
+
+  function renderF1() {
+    const body = $("f1Body");
+    if (!body) return;
+    const drivers = f1State.drivers.slice(0, 6).map((d) => `
+      <div class="match">
+        <div class="match__teams"><span class="f1-pos">${esc(d.position)}</span>${teamIcon(d.Constructors?.[0]?.constructorId)} ${esc(d.Driver?.familyName || "")}
+          <span class="tick__name">${esc(d.Constructors?.[0]?.name || "")}</span></div>
+        <div class="match__score">${esc(d.points)}</div>
+      </div>`).join("");
+    const constructors = f1State.constructors.slice(0, 6).map((c) => `
+      <div class="match">
+        <div class="match__teams"><span class="f1-pos">${esc(c.position)}</span>${teamIcon(c.Constructor?.constructorId)} ${esc(c.Constructor?.name || "")}</div>
+        <div class="match__score">${esc(c.points)}</div>
+      </div>`).join("");
+    const list = f1State.tab === "constructors" ? constructors : drivers;
+
+    body.innerHTML = `
+      <div class="f1-grid">
+        <div class="f1-left">${f1State.nextHtml || `<div class="skeleton">No upcoming race.</div>`}</div>
+        <div class="f1-right">
+          <div class="f1-tabs">
+            <button class="f1-tab${f1State.tab === "drivers" ? " is-on" : ""}" data-tab="drivers">Drivers</button>
+            <button class="f1-tab${f1State.tab === "constructors" ? " is-on" : ""}" data-tab="constructors">Constructors</button>
+          </div>
+          ${list || `<div class="skeleton">Standings unavailable.</div>`}
+        </div>
+      </div>`;
+    body.querySelectorAll(".f1-tab").forEach((b) => b.onclick = () => { f1State.tab = b.dataset.tab; renderF1(); });
+    updateQualiCountdown();
+  }
+
   async function loadF1() {
     const body = $("f1Body"), cfg = CFG.f1 || {};
     if (!cfg.enabled) { $("f1Card").style.display = "none"; return; }
     try {
       const base = "https://api.jolpi.ca/ergast/f1/current";
-      const [nextR, standR] = await Promise.allSettled([
+      const [nextR, drvR, conR] = await Promise.allSettled([
         getJSON(base + "/next.json"),
         getJSON(base + "/driverStandings.json"),
+        getJSON(base + "/constructorStandings.json"),
       ]);
-      let html = "";
+      if (drvR.status === "fulfilled")
+        f1State.drivers = drvR.value?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings || [];
+      if (conR.status === "fulfilled")
+        f1State.constructors = conR.value?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings || [];
+
+      f1State.quali = null; f1State.nextHtml = "";
       if (nextR.status === "fulfilled") {
         const race = nextR.value?.MRData?.RaceTable?.Races?.[0];
         if (race) {
-          const dt = race.time ? new Date(`${race.date}T${race.time}`) : new Date(`${race.date}T12:00:00Z`);
-          const when = dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) +
-            (race.time ? ", " + dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "");
           const loc = [race.Circuit?.Location?.locality, race.Circuit?.Location?.country].filter(Boolean).join(", ");
-          html += `<div class="f1-next">
+          const q = race.Qualifying;
+          let qline = "";
+          if (q?.date) {
+            f1State.quali = new Date(`${q.date}T${q.time || "00:00:00Z"}`);
+            const ql = f1State.quali.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+            qline = `<div class="f1-quali">Qualifying in <b id="f1Count">—</b><span class="f1-quali__at">${esc(ql)}</span></div>`;
+          } else if (race.date) {
+            const rd = new Date(`${race.date}T${race.time || "12:00:00Z"}`);
+            qline = `<div class="f1-quali__at">${esc(rd.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</div>`;
+          }
+          f1State.nextHtml = `<div class="f1-next__label">Next race</div>
             <div class="f1-next__name">${esc(race.raceName)}</div>
-            <div class="f1-next__meta">Round ${esc(race.round)}${loc ? " · " + esc(loc) : ""} · ${esc(when)}</div>
-          </div>`;
-          $("f1Sub").textContent = "next race";
+            <div class="f1-next__meta">Round ${esc(race.round)}${loc ? " · " + esc(loc) : ""}</div>
+            ${qline}`;
+          $("f1Sub").textContent = "R" + esc(race.round);
         }
       }
-      if (standR.status === "fulfilled") {
-        const list = standR.value?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings || [];
-        const top = list.slice(0, 5).map((d) => `
-          <div class="match">
-            <div class="match__teams"><span class="f1-pos">${esc(d.position)}</span> ${esc(d.Driver?.familyName || "")}
-              <span class="tick__name">${esc(d.Constructors?.[0]?.name || "")}</span></div>
-            <div class="match__score">${esc(d.points)}</div>
-          </div>`).join("");
-        if (top) html += `<div class="league-name">Drivers' Championship</div>${top}`;
-      }
-      if (!html) throw new Error("no f1 data");
-      body.innerHTML = html;
+      if (!f1State.drivers.length && !f1State.nextHtml) throw new Error("no f1 data");
+      renderF1();
     } catch (e) {
       fail(body, "F1 data unavailable (Jolpica/Ergast may be down).");
-    }
-  }
-
-  /* ========================================================================
-   * Sports — ESPN public scoreboard API (no key, CORS-enabled)
-   * ======================================================================*/
-  async function loadSports() {
-    const body = $("sportsBody"), cfg = CFG.sports || {};
-    if (!cfg.enabled || !cfg.leagues?.length) { $("sportsCard").style.display = "none"; return; }
-    try {
-      const out = await Promise.allSettled(cfg.leagues.map(async (lg) => {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/${lg.path}/scoreboard`;
-        const d = await getJSON(url);
-        return { lg, events: (d.events || []).slice(0, 4) };
-      }));
-      const blocks = out.filter((o) => o.status === "fulfilled" && o.value.events.length).map(({ value }) => {
-        const { lg, events } = value;
-        const games = events.map((ev) => {
-          const comp = ev.competitions?.[0];
-          const teams = comp?.competitors || [];
-          const home = teams.find((t) => t.homeAway === "home") || teams[0] || {};
-          const away = teams.find((t) => t.homeAway === "away") || teams[1] || {};
-          const st = ev.status?.type || {};
-          const mark = (t) => {
-            const nm = t.team?.shortDisplayName || t.team?.displayName || "?";
-            const mine = lg.team && (t.team?.displayName || "").toLowerCase().includes(lg.team.toLowerCase());
-            return mine ? `<span class="mine">${esc(nm)}</span>` : esc(nm);
-          };
-          let right;
-          if (st.state === "in") right = `<span class="match__live">${esc(st.shortDetail || "LIVE")}</span>`;
-          else if (st.completed) right = `<span class="match__score">${away.score ?? ""}–${home.score ?? ""}</span>`;
-          else right = `<span class="match__when">${new Date(ev.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}, ${new Date(ev.date).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>`;
-          return `<div class="match"><div class="match__teams">${mark(away)} <span style="color:var(--text-faint)">@</span> ${mark(home)}</div>${right}</div>`;
-        }).join("");
-        return `<div class="league-name">${esc(lg.name)}</div>${games}`;
-      });
-      body.innerHTML = blocks.length ? blocks.join("") : `<div class="skeleton">No fixtures right now.</div>`;
-    } catch (e) {
-      fail(body, "Sports unavailable. Check league paths in config.js.");
     }
   }
 
@@ -619,7 +642,7 @@
    * Orchestration
    * ======================================================================*/
   function refreshAll() {
-    loadWeather(); loadStocks(); loadNews(); loadSports(); loadCalendar(); loadF1();
+    loadWeather(); loadStocks(); loadNews(); loadCalendar(); loadF1();
     $("footStatus").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
   function schedule(fn, minutes) { if (minutes > 0) setInterval(fn, minutes * 60000); }
@@ -628,11 +651,11 @@
     initTheme();
     tickClock(); setInterval(tickClock, 1000 * 15);
     setInterval(() => applyScene(lastWeatherCode), 10 * 60000); // track time-of-day
+    setInterval(updateQualiCountdown, 1000); // live F1 qualifying countdown
     refreshAll();
     schedule(loadWeather, 15);
     schedule(loadStocks, CFG.stocks?.refreshMinutes || 5);
     schedule(loadNews, CFG.news?.refreshMinutes || 20);
-    schedule(loadSports, CFG.sports?.refreshMinutes || 10);
     schedule(loadCalendar, CFG.calendar?.refreshMinutes || 30);
     schedule(loadF1, CFG.f1?.refreshMinutes || 60);
     $("refreshBtn").addEventListener("click", refreshAll);
