@@ -40,8 +40,9 @@ need nothing; News, Markets, Calendar use the proxy):
    line in `config.js`.)*
 
 **Per-device setup the owner does in the browser (secrets never committed):**
-- **Calendar:** click "＋ Connect Google Calendar" → paste the secret iCal URL
-  (stored in `localStorage["dash-calendar-url"]`).
+- **Calendar:** click "＋ Connect calendar" → paste secret iCal URLs, one per
+  line (Google + pogdesign TV supported; stored in
+  `localStorage["dash-calendar-urls"]`).
 - **Portfolio:** click "＋ holdings" in the Markets card → paste
   `SYMBOL SHARES [AVG_COST]` lines (stored in `localStorage["dash-portfolio"]`).
 
@@ -92,11 +93,18 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
   `--glass-hi`, …). New widgets follow the `.card` / `.card__head` / `.card__body`
   pattern and inherit the glass surface automatically (the glass declarations are
   shared on `.card, .search__input, .ghost-btn, .link`).
-- **Dynamic scene.** The background is a layered gradient driven by
-  `--scene-1..3` + `--accent`, set in `app.js → applyScene()` from time of day
-  (`sceneFor`) and the live weather code. The colors are registered with
-  `@property` so the body cross-fades when they change. Edit palettes/weather
-  tints in `sceneFor`. Don't hardcode a flat background.
+- **Dynamic scene.** The `.scene` layer (in `index.html`) holds a **sun**,
+  drifting **clouds**, and a **mountain ridge** SVG, over a layered gradient
+  driven by `--scene-1..3` + `--accent`. `app.js → applyScene()` sets those
+  colors from time of day (`sceneFor`) and the live weather code, positions the
+  sun by hour (`--sun-x/--sun-y`), and sets `body[data-sky="clear|partly|cloudy|
+  rain|night"]` which CSS uses to show/hide the sun and clouds. Colors are
+  registered with `@property` so everything cross-fades. Edit palettes/tints in
+  `sceneFor`. Don't hardcode a flat background.
+- **Chrome.** No search bar or links grid. A fixed glass **top bar** (brand +
+  serif greeting on the left; weather, clock, date, theme toggle on the right)
+  and a **bottom taskbar** (brand left; updated-time + refresh right) frame the
+  widget grid, taskbar-style.
 - **Theme.** `[data-theme="dark|light"]` on `<html>`, persisted in
   `localStorage["dash-theme"]`; `"auto"` follows the OS. Dark = full scene +
   glass; light = a clean light variant (the accent still follows time of day).
@@ -127,7 +135,7 @@ touches nothing else on the account.
 ⚠️ **When you add a new news feed, calendar, or stock source to `config.js`, also
 add its hostname to `ALLOWED_HOSTS` in `proxy/worker.js` and redeploy**, or the
 proxy returns 403 for that host. Current allowlist: Yahoo Finance, BBC, The
-Verge, Hacker News (hnrss.org), Google Calendar.
+Verge, Hacker News (hnrss.org), Google Calendar, pogdesign.co.uk (TV calendar).
 
 No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
 
@@ -151,16 +159,17 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   `soccer/hun.1` (NB I.), `basketball/nba`, `football/nfl`, `hockey/nhl`,
   `baseball/mlb`. `team` is a substring used to highlight your club. No proxy
   change needed (ESPN is direct).
-- **Connect the calendar:** the iCal URL is a **secret**, so it is NOT in
-  `config.js`. On the page, click "＋ Connect Google Calendar" in the Calendar
-  card and paste the "Secret address in iCal format" (Google Calendar → Settings
-  → "Integrate calendar"). It's stored in `localStorage["dash-calendar-url"]`
-  (this browser only) and never committed. Set it per device; "change" in the
-  card header updates or clears it. (`calendar.google.com` is already
-  allowlisted in the proxy.)
+- **Connect calendars (multi-feed):** iCal URLs are **secret**, so they are NOT
+  in `config.js`. On the page, click "＋ Connect calendar" and paste **one URL
+  per line** — multiple feeds are merged, sorted, and tagged by source.
+  Supported sources: Google ("Integrate calendar" → "Secret address in iCal
+  format") and **pogdesign TV** (`pogdesign.co.uk/cat` → pick shows → copy the
+  iCal subscribe URL; host is allowlisted). Stored in
+  `localStorage["dash-calendar-urls"]` (this browser only), never committed;
+  "edit" in the card header updates/clears. Any new host still needs adding to
+  `ALLOWED_HOSTS`.
 - **Change location:** edit `location` (lat/lon from latlong.net, IANA
   `timezone`, `units: "metric" | "imperial"`).
-- **Add a quick link:** add `{ name, url }` to `links`.
 
 ## Testing changes
 

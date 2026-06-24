@@ -18,6 +18,7 @@ const ALLOWED_HOSTS = [
   "www.theverge.com",
   "hnrss.org",
   "calendar.google.com",      // calendar (.ics)
+  "pogdesign.co.uk",          // pogdesign TV calendar (.ics)
 ];
 
 const allowed = (host) =>
