@@ -89,6 +89,15 @@ window.DASH_CONFIG = {
     ],
   },
 
+  // ---- Formula 1 -----------------------------------------------------------
+  // Next race + drivers' championship via the Jolpica (Ergast) API. Keyless,
+  // CORS-enabled, no proxy needed. NB: F1 *Fantasy* has no free public API, so
+  // this shows official standings/schedule, not fantasy prices/points.
+  f1: {
+    enabled: true,
+    refreshMinutes: 60,
+  },
+
   // ---- Calendar ------------------------------------------------------------
   // iCal URLs are SECRET (anyone with one can read that calendar), so they are
   // NOT stored here. Connect them from the page: click "＋ Connect calendar" in

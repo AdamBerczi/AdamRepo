@@ -116,6 +116,10 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
 - **Weather — Open-Meteo.** No key, CORS-friendly, called directly. Reliable.
 - **Sports — ESPN public API** (`site.api.espn.com/.../scoreboard`). No key,
   CORS-enabled, called directly.
+- **Formula 1 — Jolpica/Ergast** (`api.jolpi.ca/ergast/f1/...`). No key,
+  CORS-enabled, called directly. Shows next race + drivers' standings. (F1
+  *Fantasy* has no free public API — official needs login, the community scrape
+  is stale; only paid APIs cover fantasy prices/points.)
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
 
