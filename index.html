@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" />
   <!-- ?v= busts browser/edge caches; bump it whenever css/js/config change -->
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <!-- Atmospheric scene: sun, clouds, mountain ridge — driven by app.js -->
@@ -31,14 +31,27 @@
     <div class="scene__vignette"></div>
   </div>
 
-  <!-- Top bar (taskbar-style) -->
+  <!-- Status bar (yasb-style): weather + markets live here as hover modules -->
   <header class="topbar">
     <div class="topbar__group">
       <span class="tb-brand">◐</span>
-      <span class="tb-greeting" id="greeting">Hello</span>
+      <span class="tb-user">adam@home</span>
     </div>
     <div class="topbar__group topbar__right">
-      <span class="tb-wx" id="tbWeather"></span>
+      <div class="bar-module" id="weatherCard" tabindex="0">
+        <span class="bar-module__pill" id="tbWeather">weather</span>
+        <div class="dropdown">
+          <div class="card__head"><h2>Weather</h2><span class="card__sub" id="weatherLoc"></span></div>
+          <div id="weatherBody"><div class="skeleton">Loading…</div></div>
+        </div>
+      </div>
+      <div class="bar-module" id="stocksCard" tabindex="0">
+        <span class="bar-module__pill" id="tbMarket">markets</span>
+        <div class="dropdown">
+          <div class="card__head"><h2 id="stocksTitle">Markets</h2><span class="card__sub" id="stocksSub"></span></div>
+          <div id="stocksBody"><div class="skeleton">Loading…</div></div>
+        </div>
+      </div>
       <span class="tb-sep"></span>
       <span class="tb-clock" id="clock">––:––</span>
       <span class="tb-date" id="date"></span>
@@ -47,20 +60,17 @@
   </header>
 
   <main class="dash" id="dash">
+    <!-- Hero: the desktop focal point — big clock, serif greeting -->
+    <section class="hero">
+      <div class="hero__clock" id="heroClock">––:––</div>
+      <div class="hero__greeting" id="greeting">Hello.</div>
+      <div class="hero__date" id="heroDate"></div>
+    </section>
+
     <section class="grid">
       <article class="card card--f1" id="f1Card">
         <div class="card__head"><h2>Formula 1</h2><span class="card__sub" id="f1Sub"></span></div>
         <div class="card__body" id="f1Body"><div class="skeleton">Loading…</div></div>
-      </article>
-
-      <article class="card card--weather" id="weatherCard">
-        <div class="card__head"><h2>Weather</h2><span class="card__sub" id="weatherLoc"></span></div>
-        <div class="card__body" id="weatherBody"><div class="skeleton">Loading…</div></div>
-      </article>
-
-      <article class="card card--stocks" id="stocksCard">
-        <div class="card__head"><h2 id="stocksTitle">Markets</h2><span class="card__sub" id="stocksSub"></span></div>
-        <div class="card__body" id="stocksBody"><div class="skeleton">Loading…</div></div>
       </article>
 
       <article class="card card--news" id="newsCard">
@@ -96,7 +106,7 @@
     </div>
   </footer>
 
-  <script src="config.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="config.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
