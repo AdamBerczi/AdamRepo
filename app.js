@@ -564,6 +564,11 @@
         if (name === "SUMMARY") cur.summary = icsUnescape(val);
         else if (name === "DTSTART") cur.start = parseICSDate(val, key);
         else if (name === "LOCATION") cur.location = icsUnescape(val);
+        else if (name === "RRULE") cur.rrule = val;
+        else if (name === "EXDATE") {
+          const dates = val.split(",").map((v) => parseICSDate(v, key)).filter(Boolean).map((p) => p.date);
+          (cur.exdates || (cur.exdates = [])).push(...dates);
+        }
       }
     }
     return events;
@@ -582,6 +587,54 @@
     const d = z ? new Date(Date.UTC(+y, +mo - 1, +da, +h, +mi, +s)) : new Date(+y, +mo - 1, +da, +h, +mi, +s);
     return { date: d, allDay: false };
   }
+
+  // Minimal RFC 5545 RRULE expansion — most Google Calendar entries are
+  // recurring, so without this their DTSTART (the *first ever* occurrence,
+  // often long past) is the only date we know about and they'd never show
+  // up as "upcoming". Covers DAILY/WEEKLY/MONTHLY/YEARLY with INTERVAL,
+  // COUNT, UNTIL, and BYDAY (weekly) — enough for the common cases, not a
+  // full RFC 5545 engine. Returns occurrence Dates within [rangeStart, rangeEnd).
+  function expandRecurrence(dtstart, rrule, exdates, rangeStart, rangeEnd) {
+    const parts = {};
+    rrule.split(";").forEach((p) => { const [k, v] = p.split("="); if (k) parts[k] = v; });
+    const freq = parts.FREQ;
+    if (!["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(freq)) return [];
+    const interval = Math.max(1, parseInt(parts.INTERVAL, 10) || 1);
+    const count = parts.COUNT ? parseInt(parts.COUNT, 10) : Infinity;
+    const until = parts.UNTIL ? (parseICSDate(parts.UNTIL, "UNTIL") || {}).date : null;
+    const exSet = new Set((exdates || []).map((d) => d.getTime()));
+    const DAY_NUM = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+    const byday = parts.BYDAY ? parts.BYDAY.split(",").map((c) => DAY_NUM[c]).filter((n) => n != null) : null;
+    const out = [];
+
+    if (freq === "WEEKLY" && byday?.length) {
+      let weekStart = new Date(dtstart); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      let n = 0;
+      for (let w = 0; w < 1000 && weekStart < rangeEnd; w++, weekStart.setDate(weekStart.getDate() + 7 * interval)) {
+        const occs = byday.map((dn) => { const d = new Date(weekStart); d.setDate(d.getDate() + dn); return d; })
+          .filter((d) => d >= dtstart).sort((a, b) => a - b);
+        for (const occ of occs) {
+          n++;
+          if (until && occ > until) return out;
+          if (n > count) return out;
+          if (occ >= rangeStart && occ < rangeEnd && !exSet.has(occ.getTime())) out.push(occ);
+        }
+      }
+      return out;
+    }
+
+    let occ = new Date(dtstart);
+    for (let n = 1; n <= count && n <= 20000 && occ < rangeEnd; n++) {
+      if (until && occ > until) break;
+      if (occ >= rangeStart && !exSet.has(occ.getTime())) out.push(new Date(occ));
+      if (freq === "DAILY") occ.setDate(occ.getDate() + interval);
+      else if (freq === "WEEKLY") occ.setDate(occ.getDate() + 7 * interval);
+      else if (freq === "MONTHLY") occ.setMonth(occ.getMonth() + interval);
+      else occ.setFullYear(occ.getFullYear() + interval);
+    }
+    return out;
+  }
+
   // Calendar URLs are *secret* (anyone with one can read that calendar), so they
   // live only in this browser's localStorage — never committed. Multiple feeds
   // are supported (e.g. a Google calendar + a pogdesign TV calendar); events
@@ -661,9 +714,16 @@
         const src = calSource(u);
         return parseICS(text).map((ev) => ({ ...ev, source: src }));
       }));
-      const all = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value)
-        .filter((e) => e.start && e.start.date >= todayStart)
-        .sort((a, b) => a.start.date - b.start.date);
+      const raw = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value);
+      // Non-recurring events pass through if upcoming; recurring events (most
+      // Google Calendar entries) are expanded into the occurrences that fall
+      // in our display window, since their DTSTART alone is usually stale.
+      const all = raw.flatMap((ev) => {
+        if (!ev.start) return [];
+        if (!ev.rrule) return ev.start.date >= todayStart ? [ev] : [];
+        return expandRecurrence(ev.start.date, ev.rrule, ev.exdates, todayStart, weekEnd)
+          .map((date) => ({ ...ev, start: { date, allDay: ev.start.allDay } }));
+      }).sort((a, b) => a.start.date - b.start.date);
 
       const max = cfg.maxItems || 6;
       const today = all.filter((e) => e.start.date < tomorrowStart).slice(0, max);

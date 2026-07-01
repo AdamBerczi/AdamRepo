@@ -150,17 +150,33 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
   CORS-enabled, called directly. Shows the next race, a live **countdown to
   qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
   standings tabs with team-colour icons (`F1_TEAM` map). The card is
-  double-width (`.card--f1` span 4) with a two-column `.f1-grid`. (F1 *Fantasy*
-  has no free public API — official needs login, the community scrape is stale;
-  only paid APIs cover fantasy prices/points.)
+  full-width (`.card--f1` span 6, its own row above the calendar row) with a
+  two-column `.f1-grid`. (F1 *Fantasy* has no free public API — official
+  needs login, the community scrape is stale; only paid APIs cover fantasy
+  prices/points.)
 - **Calendar (.ics) — three cards.** `loadCalendar()` fetches every connected
-  feed once, merges + sorts the events (same as before), then buckets them by
-  local day boundary into **Today** / **Tomorrow** / **This week** (the 5 days
-  after tomorrow) and renders each bucket into its own card via the shared
-  `renderEvents()` helper. `calendar.maxItems` caps events *per card*, not
-  globally. The "＋ Connect calendar" / "edit" control only lives on the
-  Today card (one shared URL list feeds all three); the other two only show
-  a subtitle (date / date range) and their own empty-state message.
+  feed once, merges the events, **expands recurring ones** (see below), then
+  buckets them by local day boundary into **Today** / **Tomorrow** / **This
+  week** (the 5 days after tomorrow) and renders each bucket into its own
+  card via the shared `renderEvents()` helper. All three sit together in one
+  row below the full-width F1 card (`.card--cal` span 2 × 3 = 6), so they get
+  equal height automatically from the grid's default row-stretch — no
+  explicit height CSS needed, just keep them in the same DOM row.
+  `calendar.maxItems` caps events *per card*, not globally. The "＋ Connect
+  calendar" / "edit" control only lives on the Today card (one shared URL
+  list feeds all three); the other two only show a subtitle (date / date
+  range) and their own empty-state message.
+  - **Recurring events (RRULE).** `parseICS` now also captures `RRULE` and
+    `EXDATE`. Most Google Calendar entries are recurring, and their `DTSTART`
+    is just the *first-ever* occurrence (often long past) — without
+    expansion they'd never pass the "is this upcoming?" filter and would
+    silently never appear, which was exactly the "calendar shows empty but
+    there are events" bug. `expandRecurrence()` (in `app.js`, near
+    `parseICSDate`) is a **minimal** RFC 5545 engine: `DAILY`/`WEEKLY`/
+    `MONTHLY`/`YEARLY` with `INTERVAL`, `COUNT`, `UNTIL`, and `BYDAY` (for
+    weekly) — covers the common Google Calendar patterns, not the full spec
+    (no `BYMONTHDAY`/`BYSETPOS`/etc.). Only expands within the display
+    window (today → +7 days), so it stays fast even for years-old series.
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
   (News is currently disabled — see Status above — but the code/proxy path
