@@ -18,8 +18,13 @@ Workers (static assets)** at **https://home.adam-berczi.workers.dev/**, gated
 by **Cloudflare Access** restricted to `adam.berczi@gmail.com` (email
 one-time-PIN login required before the page loads). The old public GitHub
 Pages copy (`https://adamberczi.github.io/AdamRepo/`) is being turned off.
-Current look: a dynamic time-of-day + weather **scene** background with
-**glassmorphic** widgets, hero clock, serif-italic greeting. Features include
+Current look: **"dusk rice"** — a moody dusk-mountain scene (charcoal sky,
+dusty-rose cloud glow, near-black ridge silhouettes) behind **flat,
+near-opaque charcoal panels with hairline dusty-rose borders**, monospace
+(JetBrains Mono) UI type, a serif-italic greeting, and a single rose accent
+plus a monkeytype-yellow data accent — modeled on a Windows rice screenshot
+the owner supplied (Windhawk/yasb-style). **No glassmorphism/blur.**
+Features include
 weather (geolocation-based, falls back to the Budapest preset), a markets
 watchlist that becomes a **portfolio** tracker (value + day change +
 gain/loss), a multi-feed calendar (incl. live pogdesign TV) split across
@@ -83,10 +88,11 @@ re-enabled):
   (Budapest). Set `location.autoDetect: false` to always use the preset and
   skip the prompt entirely.
 
-**Most likely next requests:** design tweaks from live feedback (scene palettes,
-glass intensity, type, layout), add/remove widgets, add stocks/feeds/teams.
-Most content changes = edit `config.js` (see "Common edits"); design = `styles.css`
-+ `sceneFor` in `app.js`.
+**Most likely next requests:** design tweaks from live feedback (panel
+opacity/border strength, scene glow, type scale, layout), add/remove widgets,
+add stocks/feeds/teams. Most content changes = edit `config.js` (see "Common
+edits"); design = `styles.css` tokens + `sceneFor` in `app.js` (stay inside
+the charcoal + dusty-rose family — see Styling).
 
 ---
 
@@ -129,28 +135,39 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
   hardcode personal data in `app.js`.
 - **Escape untrusted strings.** Feed/API text is injected with `innerHTML`, so
   pass it through `esc()` first (done throughout). Keep doing this.
-- **Styling.** Use existing CSS custom properties (`--accent`, `--text-dim`,
-  `--up`/`--down`, `--radius`, glass tokens `--glass-bg`/`--glass-border`/
-  `--glass-hi`, …). New widgets follow the `.card` / `.card__head` / `.card__body`
-  pattern and inherit the glass surface automatically (the glass declarations are
-  shared on `.card, .search__input, .ghost-btn, .link`).
-- **Dynamic scene.** The `.scene` layer (in `index.html`) holds a **sun**,
-  drifting **clouds**, and a **mountain ridge** SVG, over a layered gradient
-  driven by `--scene-1..3` + `--accent`. `app.js → applyScene()` sets those
-  colors from time of day (`sceneFor`) and the live weather code, positions the
-  sun by hour (`--sun-x/--sun-y`), and sets `body[data-sky="clear|partly|cloudy|
-  rain|night"]` which CSS uses to show/hide the sun and clouds. Colors are
-  registered with `@property` so everything cross-fades. Edit palettes/tints in
-  `sceneFor`. Don't hardcode a flat background.
-- **Chrome.** No search bar or links grid. A fixed glass **top bar** (brand +
-  serif greeting on the left; weather, clock, date, theme toggle on the right)
-  and a **bottom taskbar** (brand left; updated-time + refresh right) frame the
-  widget grid, taskbar-style.
+- **Styling — the "dusk rice" system.** Flat, near-opaque panels, hairline
+  rose borders, mono type. Tokens in `styles.css` `:root`: `--panel` /
+  `--panel-2` (surfaces), `--panel-border` / `--panel-hover` (hairlines,
+  derived from the accent), `--accent` (dusty rose, the *only* UI accent),
+  `--gold` (monkeytype yellow — data highlights like the F1 countdown),
+  `--up`/`--down` (muted), `--radius` (12px), `--line`, `--font` (JetBrains
+  Mono), `--serif`. **No backdrop blur, no glass tokens** (they're gone).
+  New widgets follow `.card` / `.card__head` / `.card__body` and inherit the
+  panel surface. Selection/hover idiom: a solid pink block with dark text
+  (`.card__sub a:hover`, `.f1-tab.is-on`) — the "fzf highlight bar" look.
+  Card `h2` labels are lowercase, small, letter-spaced, rose-tinted.
+- **Dynamic scene.** The `.scene` layer (in `index.html`) holds a soft rose
+  **glow** (`.scene__sun`), drifting muted-rose **clouds**, and a near-black
+  **mountain ridge** SVG, over a charcoal gradient driven by `--scene-1..3`
+  + `--accent`. `app.js → applyScene()` sets those from time of day
+  (`sceneFor`) and live weather, positions the glow by hour
+  (`--sun-x/--sun-y`), and sets `body[data-sky=…]` for cloud/sun visibility.
+  ⚠️ `sceneFor`'s palettes are deliberately **all inside the charcoal +
+  dusty-rose family** — time of day shifts warmth/brightness only; weather
+  desaturates toward grey. Don't reintroduce blues/teals/purples per hour;
+  that breaks the identity. Colors are `@property`-registered so changes
+  cross-fade.
+- **Chrome.** No search bar or links grid. Slim flat **status bars**
+  (yasb-style, 40px, mono 12px): top = brand + serif-italic greeting left;
+  weather, clock, date, theme toggle right. Bottom = brand left,
+  updated-time + refresh right.
 - **Theme.** `[data-theme="dark|light"]` on `<html>`, persisted in
-  `localStorage["dash-theme"]`; `"auto"` follows the OS. Dark = full scene +
-  glass; light = a clean light variant (the accent still follows time of day).
-- **Fonts.** Inter (UI) + Instrument Serif (the italic greeting) loaded from
-  Google Fonts in `index.html`, with system fallbacks if offline.
+  `localStorage["dash-theme"]`; `"auto"` follows the OS. Dark = the dusk
+  rice; light = a warm **paper** variant (cream surfaces, same rose
+  identity, darker rose accent for contrast).
+- **Fonts.** JetBrains Mono (all UI/data) + Instrument Serif (the italic
+  greeting) from Google Fonts in `index.html`, mono/serif system fallbacks
+  if offline.
 
 ## Data sources (and their quirks)
 
