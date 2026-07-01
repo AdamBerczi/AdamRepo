@@ -62,23 +62,26 @@
 
   function sceneFor(date, code) {
     const h = localHour(date);
-    // base palette by time of day: [glow, mid, deep], accent
+    // "Dusk rice" palette: every hour of the day stays inside the same moody
+    // charcoal + dusty-rose family (see styles.css header) — time of day only
+    // shifts the warmth/brightness a little, it never changes identity.
+    // [glow, mid, deep], accent.
     let s;
-    if (h >= 22 || h < 5)      s = { stops: ["#222d4a", "#0d1120", "#05060c"], accent: "#8aa0ff" }; // night
-    else if (h < 8)            s = { stops: ["#46314f", "#241a30", "#0e0b18"], accent: "#ff9e7a" }; // dawn
-    else if (h < 11)           s = { stops: ["#27506b", "#122a3c", "#08131f"], accent: "#5bb6e6" }; // morning
-    else if (h < 16)           s = { stops: ["#2a5160", "#143038", "#0a181d"], accent: "#52c6bb" }; // midday
-    else if (h < 19)           s = { stops: ["#6f3c2e", "#3a2320", "#160d0e"], accent: "#ff8a5c" }; // golden hour
-    else                       s = { stops: ["#3c2b52", "#1d1730", "#0c0a16"], accent: "#c98bff" }; // dusk
+    if (h >= 22 || h < 5)      s = { stops: ["#221c26", "#121016", "#08070b"], accent: "#c48b90" }; // night — mauve-charcoal
+    else if (h < 8)            s = { stops: ["#382630", "#1c151d", "#0c090e"], accent: "#e8a894" }; // dawn — peach-rose
+    else if (h < 11)           s = { stops: ["#2e252d", "#181419", "#0b0a0d"], accent: "#dfa09c" }; // morning
+    else if (h < 16)           s = { stops: ["#322a30", "#1a161b", "#0c0b0e"], accent: "#d99b98" }; // midday — lightest
+    else if (h < 19)           s = { stops: ["#43282d", "#211317", "#0e090b"], accent: "#eb9c8b" }; // golden hour — warmest
+    else                       s = { stops: ["#38222f", "#1b121c", "#0c080e"], accent: "#dd93a0" }; // dusk — the hero look
 
-    // weather tint
+    // weather tint: desaturate toward grey, never leave the family
     const c = code;
     const cloud = [2, 3, 45, 48].includes(c);
     const rain = (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || (c >= 95 && c <= 99);
     const snow = (c >= 71 && c <= 77) || c === 85 || c === 86;
-    if (rain) { s.stops = s.stops.map((x) => mix(x, "#1b2632", 0.5)); s.accent = mix(s.accent, "#6f93c0", 0.5); }
-    else if (snow) { s.stops = s.stops.map((x) => mix(x, "#566373", 0.42)); s.accent = mix(s.accent, "#bcd0e8", 0.5); }
-    else if (cloud) { s.stops = s.stops.map((x) => mix(x, "#363b46", 0.32)); s.accent = mix(s.accent, "#9aa6b8", 0.35); }
+    if (rain) { s.stops = s.stops.map((x) => mix(x, "#1d1c22", 0.45)); s.accent = mix(s.accent, "#9b8f96", 0.4); }
+    else if (snow) { s.stops = s.stops.map((x) => mix(x, "#3d3a42", 0.4)); s.accent = mix(s.accent, "#cfc4c8", 0.4); }
+    else if (cloud) { s.stops = s.stops.map((x) => mix(x, "#26242a", 0.3)); s.accent = mix(s.accent, "#a89aa0", 0.28); }
     return s;
   }
 
