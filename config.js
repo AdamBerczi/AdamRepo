@@ -66,21 +66,20 @@ window.DASH_CONFIG = {
   },
 
   // ---- News ----------------------------------------------------------------
-  // English-language breaking / important headlines. These are top-story /
-  // front-page feeds (editorially curated for importance), merged and sorted by
-  // recency; items whose title contains "breaking" are floated to the top.
-  // Any RSS/Atom URL works — but add its hostname to ALLOWED_HOSTS in
-  // proxy/worker.js (and redeploy) or the proxy returns 403.
-  // Currently disabled (card hides itself) — set enabled: true to bring it back.
+  // Custom-topic headlines: each `topics` entry becomes a Google News search
+  // feed (keyless — Google ranks by relevance/recency), merged, sorted by
+  // recency ("breaking" titles float to the top), capped at maxItems total.
+  // Edit topics freely — anything you'd type into Google News search works
+  // ("Formula 1", "OpenAI", "Budapest transit", '"Nvidia" earnings', …).
+  // `feeds` also still takes plain RSS/Atom `{ name, url }` entries — but any
+  // new hostname must be added to ALLOWED_HOSTS in proxy/worker.js + redeploy
+  // (news.google.com, BBC, Al Jazeera, NPR are already allowlisted).
   news: {
-    enabled: false,
-    maxItems: 9,
+    enabled: true,
+    maxItems: 5,
     refreshMinutes: 15,
-    feeds: [
-      { name: "BBC", url: "https://feeds.bbci.co.uk/news/rss.xml" },          // Top stories
-      { name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml" },
-      { name: "NPR", url: "https://feeds.npr.org/1001/rss.xml" },              // Top stories
-    ],
+    topics: ["Formula 1", "artificial intelligence", "world news"],
+    feeds: [],
   },
 
   // ---- Formula 1 -----------------------------------------------------------

@@ -493,10 +493,19 @@
   }
   async function loadNews() {
     const body = $("newsBody"), cfg = CFG.news || {};
-    if (!cfg.enabled || !cfg.feeds?.length) { $("newsCard").style.display = "none"; return; }
+    // Custom topics: each entry in cfg.topics becomes a Google News RSS
+    // *search* feed (keyless, editorially ranked by Google News) — merged
+    // with any plain RSS feeds in cfg.feeds. Both go through the proxy.
+    const topicFeeds = (cfg.topics || []).map((t) => ({
+      name: t,
+      url: `https://news.google.com/rss/search?q=${encodeURIComponent(t)}&hl=en-US&gl=US&ceid=US:en`,
+    }));
+    const feeds = [...(cfg.feeds || []), ...topicFeeds];
+    if (!cfg.enabled || !feeds.length) { $("newsCard").style.display = "none"; return; }
+    $("newsSub").textContent = (cfg.topics || []).join(" · ");
     try {
       const settled = await Promise.allSettled(
-        cfg.feeds.map(async (f) => parseFeed(await getText(f.url, { useProxy: true }), f.name))
+        feeds.map(async (f) => parseFeed(await getText(f.url, { useProxy: true }), f.name))
       );
       let all = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value);
       if (!all.length) throw new Error("no items");

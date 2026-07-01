@@ -14,6 +14,7 @@
 const ALLOWED_HOSTS = [
   "query1.finance.yahoo.com", // stocks
   "query2.finance.yahoo.com",
+  "news.google.com",          // news (topic search RSS feeds)
   "feeds.bbci.co.uk",         // news (BBC top stories)
   "aljazeera.com",            // news (Al Jazeera)
   "npr.org",                  // news (NPR top stories)
