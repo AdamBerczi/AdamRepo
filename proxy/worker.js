@@ -45,7 +45,12 @@ export default {
 
     try {
       const upstream = await fetch(t.toString(), {
-        headers: { "User-Agent": "Mozilla/5.0 (start-page-proxy)", "Accept": "*/*" },
+        // A real-browser UA: some feed hosts (e.g. pogdesign) reject requests
+        // with obvious bot/agent strings, returning an error page instead of ICS.
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+          "Accept": "*/*",
+        },
         cf: { cacheTtl: 120, cacheEverything: true },
       });
       const h = new Headers(cors);

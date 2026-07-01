@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;650;700&family=Instrument+Serif:ital@0;1&display=swap" />
   <!-- ?v= busts browser/edge caches; bump it whenever css/js/config change -->
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body>
   <!-- Atmospheric scene: sun, clouds, mountain ridge — driven by app.js -->
@@ -48,6 +48,11 @@
 
   <main class="dash" id="dash">
     <section class="grid">
+      <article class="card card--f1" id="f1Card">
+        <div class="card__head"><h2>Formula 1</h2><span class="card__sub" id="f1Sub"></span></div>
+        <div class="card__body" id="f1Body"><div class="skeleton">Loading…</div></div>
+      </article>
+
       <article class="card card--weather" id="weatherCard">
         <div class="card__head"><h2>Weather</h2><span class="card__sub" id="weatherLoc"></span></div>
         <div class="card__body" id="weatherBody"><div class="skeleton">Loading…</div></div>
@@ -61,11 +66,6 @@
       <article class="card card--news" id="newsCard">
         <div class="card__head"><h2>News</h2><span class="card__sub" id="newsSub"></span></div>
         <div class="card__body" id="newsBody"><div class="skeleton">Loading…</div></div>
-      </article>
-
-      <article class="card card--f1" id="f1Card">
-        <div class="card__head"><h2>Formula 1</h2><span class="card__sub" id="f1Sub"></span></div>
-        <div class="card__body" id="f1Body"><div class="skeleton">Loading…</div></div>
       </article>
 
       <article class="card card--cal" id="calTodayCard">
@@ -96,7 +96,7 @@
     </div>
   </footer>
 
-  <script src="config.js?v=8"></script>
-  <script src="app.js?v=8"></script>
+  <script src="config.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

@@ -181,11 +181,14 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
   border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; min-height: 168px;
 }
-.card--weather  { grid-column: span 2; }
-.card--stocks   { grid-column: span 2; }
+/* Rows (desktop): F1 full-width on top, then Weather+Stocks (3+3 fills the
+   row while News is disabled — drop back to 2+2+2 if News returns), then the
+   three calendar cards. */
+.card--f1       { grid-column: span 6; }
+.card--weather  { grid-column: span 3; }
+.card--stocks   { grid-column: span 3; }
 .card--news     { grid-column: span 2; }
 .card--cal      { grid-column: span 2; }
-.card--f1       { grid-column: span 6; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .card__head h2 { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }

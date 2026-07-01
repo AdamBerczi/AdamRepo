@@ -53,16 +53,30 @@ re-enabled):
    Worker (or the `home` Worker serving the site itself).
    *(No-deploy alternative: uncomment the `api.allorigins.win` fallback line
    in `config.js`.)*
+   **Redeploy needed:** the worker's User-Agent was changed to a real-browser
+   string (some feed hosts, e.g. pogdesign, reject bot-looking agents) — run
+   `cd proxy && npx wrangler deploy` again to pick it up.
+
+2. **Fix the TV calendar feed URL.** The committed
+   `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is suspected to be a
+   profile *web page*, not an iCal feed (the calendar cards now validate
+   responses and will say "⚠ TV failed" if so). Get the real feed URL from
+   pogdesign.co.uk while signed in (look for the iCal/"Calendar Feed" export
+   link), then replace `calendar.feeds[0]` in `config.js` with it — or paste
+   it on the page via "＋ connect" instead.
 
 **Per-device setup the owner does in the browser (secrets never committed):**
 - **Calendar:** click "＋ Connect calendar" (on the **Today** card) → paste
   secret iCal URLs, one per line (Google + pogdesign TV supported; stored in
   `localStorage["dash-calendar-urls"]`). One shared connection feeds all
   three calendar cards.
-- **Portfolio:** click "＋ holdings" in the Markets card → paste
-  `SYMBOL SHARES [AVG_COST]` lines (stored in `localStorage["dash-portfolio"]`).
-  `config.js` ships with an empty committed portfolio on purpose (public repo)
-  — real holdings only ever live in this per-browser localStorage.
+- **Portfolio:** the owner's real holdings (4008 cash, 40 NVDA, 4 MSFT) are
+  **committed in `config.js`** — the owner explicitly chose this for
+  convenience despite the public repo. A per-browser override exists via
+  "＋ holdings" / "edit" on the card (`localStorage["dash-portfolio"]`, wins
+  over config); submit an empty list there to fall back to the committed
+  values. If the card ever shows unexpected symbols, a stale localStorage
+  override is the first suspect.
 - **Weather location:** the browser will prompt for location permission on
   first load; allow it for weather where you actually are. Deny/ignore it and
   the card silently falls back to the `location` preset in `config.js`
@@ -162,18 +176,20 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
   CORS-enabled, called directly. Shows the next race, a live **countdown to
   qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
   standings tabs with team-colour icons (`F1_TEAM` map). The card is
-  full-width (`.card--f1` span 6, its own row above the calendar row) with a
-  two-column `.f1-grid`. (F1 *Fantasy* has no free public API — official
-  needs login, the community scrape is stale; only paid APIs cover fantasy
+  full-width (`.card--f1` span 6) and sits in the **top row** of the grid,
+  with a two-column `.f1-grid`. Row order: F1 → Weather+Stocks (span 3+3
+  while News is disabled; drop back to 2+2+2 if News returns) → the three
+  calendar cards. (F1 *Fantasy* has no free public API — official needs
+  login, the community scrape is stale; only paid APIs cover fantasy
   prices/points.)
 - **Calendar (.ics) — three cards.** `loadCalendar()` fetches every connected
   feed once, merges the events, **expands recurring ones** (see below), then
   buckets them by local day boundary into **Today** / **Tomorrow** / **This
   week** (the 5 days after tomorrow) and renders each bucket into its own
-  card via the shared `renderEvents()` helper. All three sit together in one
-  row below the full-width F1 card (`.card--cal` span 2 × 3 = 6), so they get
-  equal height automatically from the grid's default row-stretch — no
-  explicit height CSS needed, just keep them in the same DOM row.
+  card via the shared `renderEvents()` helper. All three sit together in the
+  bottom row (`.card--cal` span 2 × 3 = 6), so they get equal height
+  automatically from the grid's default row-stretch — no explicit height CSS
+  needed, just keep them in the same DOM row.
   `calendar.maxItems` caps events *per card*, not globally. The connect/edit
   control only lives on the Today card (one shared URL list feeds all three);
   it reads "＋ connect" until private (localStorage) feeds exist, then "edit".
@@ -236,11 +252,10 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
     "＋ holdings" / "edit" — paste `SYMBOL SHARES [AVG_COST]` lines (e.g.
     `AAPL 10 150.25`). Stored in `localStorage["dash-portfolio"]`, never committed.
   - *Committed (public):* `CFG.portfolio` in `config.js` — `{ currency, cash,
-    holdings:[{symbol,shares,cost}] }`. ⚠️ The repo/site is public, so anything
-    put here is visible to anyone browsing the repo on GitHub — **left empty
-    by default** (`holdings: [], cash: 0`) for exactly that reason. Real
-    numbers belong in the private localStorage form above. `cash` (if you do
-    commit it) is added to the displayed total but excluded from gain/loss.
+    holdings:[{symbol,shares,cost}] }`. ⚠️ The repo is public, so anything put
+    here is visible to anyone browsing GitHub — the owner knowingly committed
+    his real holdings anyway (his call, made explicitly). `cash` is added to
+    the displayed total but excluded from gain/loss.
   With avg cost it computes total gain/loss; without it, just value + day change.
   Mixed currencies are summed per-currency. Uses the Yahoo quote feed (via proxy).
 - **News (currently disabled, `news.enabled: false`):** add `{ name, url }` to
