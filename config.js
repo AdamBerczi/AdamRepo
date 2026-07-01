@@ -27,11 +27,12 @@ window.DASH_CONFIG = {
   // but for reliability host your own (see CLAUDE.md → "Self-hosted proxy").
   // The "{url}" token is replaced with the URL-encoded target.
   //
-  // ACTIVE: public allorigins proxy — works with zero deploy (slower, public,
-  // can be rate-limited). To switch to your own private/fast Worker, deploy it
-  // (`cd proxy && npx wrangler deploy`) and swap the two lines below.
-  corsProxy: "https://api.allorigins.win/raw?url={url}",
-  // corsProxy: "https://personal-dash-proxy.adam-berczi.workers.dev/?url={url}",
+  // ACTIVE: your own private Cloudflare Worker proxy — fast, reliable, not
+  // rate-limited. Requires a one-time deploy: `cd proxy && npx wrangler deploy`.
+  // (Fallback: the public allorigins proxy below works with zero deploy but is
+  // slow and frequently down/rate-limited — swap the two lines to use it.)
+  corsProxy: "https://personal-dash-proxy.adam-berczi.workers.dev/?url={url}",
+  // corsProxy: "https://api.allorigins.win/raw?url={url}",
 
   // ---- Stocks --------------------------------------------------------------
   // Add ticker symbols you want to watch. For non-US exchanges use the Yahoo
