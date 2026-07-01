@@ -12,13 +12,21 @@
   const proxy = (url) =>
     (CFG.corsProxy || "{url}").replace("{url}", encodeURIComponent(url));
 
+  // All widget fetches go through this: a hung upstream aborts after 12s so a
+  // dead data source shows its fail message instead of stalling the card forever.
+  async function fetchT(url, ms = 12000) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try { return await fetch(url, { mode: "cors", signal: ctl.signal }); }
+    finally { clearTimeout(t); }
+  }
   async function getJSON(url, { useProxy = false } = {}) {
-    const res = await fetch(useProxy ? proxy(url) : url, { mode: "cors" });
+    const res = await fetchT(useProxy ? proxy(url) : url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
   async function getText(url, { useProxy = false } = {}) {
-    const res = await fetch(useProxy ? proxy(url) : url, { mode: "cors" });
+    const res = await fetchT(useProxy ? proxy(url) : url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();
   }
@@ -150,17 +158,35 @@
     85: ["Snow showers", "🌨️"], 86: ["Snow showers", "❄️"],
     95: ["Thunderstorm", "⛈️"], 96: ["Thunderstorm", "⛈️"], 99: ["Thunderstorm", "⛈️"],
   };
+  // Last successfully detected location, cached so the very first paint after
+  // a reload is already local weather (no permission-prompt / GPS wait).
+  const GEO_KEY = "dash-geo";
+  function readGeoCache() {
+    try {
+      const g = JSON.parse(localStorage.getItem(GEO_KEY));
+      if (g && isFinite(g.lat) && isFinite(g.lon)) return g;
+    } catch {}
+    return null;
+  }
+
   // Try the browser's own location (GPS/Wi-Fi/IP) so weather reflects where
   // you actually are, not just the home-base preset. Resolves to null (never
   // rejects) on denial/timeout/unsupported browsers so callers can fall back.
+  // Checks the Permissions API first so a previously-denied prompt resolves
+  // instantly instead of eating the full geolocation timeout.
   function getGeoCoords() {
     return new Promise((resolve) => {
       if (!navigator.geolocation || CFG.location?.autoDetect === false) return resolve(null);
-      navigator.geolocation.getCurrentPosition(
+      const ask = () => navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
         () => resolve(null),
-        { timeout: 5000, maximumAge: 10 * 60000 }
+        { timeout: 8000, maximumAge: 10 * 60000 }
       );
+      if (navigator.permissions?.query) {
+        navigator.permissions.query({ name: "geolocation" })
+          .then((st) => (st.state === "denied" ? resolve(null) : ask()))
+          .catch(ask);
+      } else ask();
     });
   }
 
@@ -175,28 +201,29 @@
     } catch { return null; }
   }
 
-  async function loadWeather() {
+  // Fetch + render weather for one specific spot. `detected` switches the
+  // forecast timezone to the spot's own ("auto") instead of the preset's.
+  // A sequence counter makes the newest call win: if a slow earlier fetch
+  // (e.g. the preset paint) resolves after the geolocation upgrade, it's
+  // discarded instead of overwriting the fresher render.
+  let wxSeq = 0;
+  async function renderWeatherAt(lat, lon, label, detected) {
+    const seq = ++wxSeq;
     const body = $("weatherBody"), loc = CFG.location || {};
     const imperial = loc.units === "imperial";
     try {
-      const geo = await getGeoCoords();
-      const lat = geo?.lat ?? loc.lat, lon = geo?.lon ?? loc.lon;
-      const [d, label] = await Promise.all([
-        (() => {
-          const u = new URL("https://api.open-meteo.com/v1/forecast");
-          u.search = new URLSearchParams({
-            latitude: lat, longitude: lon, timezone: geo ? "auto" : (loc.timezone || "auto"),
-            current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m",
-            daily: "weather_code,temperature_2m_max,temperature_2m_min",
-            temperature_unit: imperial ? "fahrenheit" : "celsius",
-            wind_speed_unit: imperial ? "mph" : "kmh",
-            forecast_days: "5",
-          });
-          return getJSON(u.toString());
-        })(),
-        geo ? reverseGeocode(lat, lon) : Promise.resolve(loc.label || ""),
-      ]);
-      $("weatherLoc").textContent = label || (geo ? "My location" : (loc.label || ""));
+      const u = new URL("https://api.open-meteo.com/v1/forecast");
+      u.search = new URLSearchParams({
+        latitude: lat, longitude: lon, timezone: detected ? "auto" : (loc.timezone || "auto"),
+        current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m",
+        daily: "weather_code,temperature_2m_max,temperature_2m_min",
+        temperature_unit: imperial ? "fahrenheit" : "celsius",
+        wind_speed_unit: imperial ? "mph" : "kmh",
+        forecast_days: "5",
+      });
+      const d = await getJSON(u.toString());
+      if (seq !== wxSeq) return; // a newer render superseded this one
+      $("weatherLoc").textContent = label || (detected ? "My location" : "");
       const c = d.current, [desc, ico] = WX[c.weather_code] || ["—", "•"];
       lastWeatherCode = c.weather_code; applyScene(lastWeatherCode);
       const tU = imperial ? "°F" : "°C", wU = imperial ? "mph" : "km/h";
@@ -220,8 +247,29 @@
         </div>
         <div class="wx-days">${days}</div>`;
     } catch (e) {
-      fail(body, "Weather unavailable. Check your location coords in config.js.");
+      // Don't clobber an already-rendered card when a background re-render
+      // (e.g. the geolocation upgrade) fails — only fail if nothing is shown.
+      if (!body.querySelector(".wx-now")) fail(body, "Weather unavailable. Check your location coords in config.js.");
     }
+  }
+
+  // Render-first weather: paint immediately from the best spot we already know
+  // (last detected location, else the config preset — never wait on a
+  // permission prompt), then ask for live geolocation in the background and
+  // re-render + cache it only if the answer meaningfully moved.
+  async function loadWeather() {
+    const loc = CFG.location || {};
+    const cached = readGeoCache();
+    if (cached) renderWeatherAt(cached.lat, cached.lon, cached.label, true);
+    else renderWeatherAt(loc.lat, loc.lon, loc.label || "", false);
+
+    const geo = await getGeoCoords();
+    if (!geo) return; // denied/unavailable → the paint above stands
+    const moved = !cached || Math.abs(geo.lat - cached.lat) > 0.02 || Math.abs(geo.lon - cached.lon) > 0.02;
+    if (!moved) return;
+    const label = (await reverseGeocode(geo.lat, geo.lon)) || "My location";
+    try { localStorage.setItem(GEO_KEY, JSON.stringify({ lat: geo.lat, lon: geo.lon, label })); } catch {}
+    renderWeatherAt(geo.lat, geo.lon, label, true);
   }
 
   /* ========================================================================
@@ -359,7 +407,9 @@
       const price = m.regularMarketPrice;
       const prev = m.chartPreviousClose ?? m.previousClose ?? price;
       return {
-        symbol: m.symbol || sym,
+        // Key by the *requested* symbol: Yahoo sometimes normalizes it (case,
+        // suffix), and renderPortfolio looks quotes up by the holding's symbol.
+        symbol: sym,
         shortName: m.shortName || m.longName || m.exchangeName || "",
         regularMarketPrice: price,
         regularMarketChange: prev != null ? price - prev : 0,
@@ -689,7 +739,12 @@
     if (!cfg.enabled) { cards.forEach((c) => c.style.display = "none"); return; }
 
     const urls = getCalUrls();
-    $("calTodaySub").innerHTML = urls.length ? `<a href="#" id="calEdit">edit</a>` : "";
+    // Private (localStorage) feeds are where the secret Google URL lives; if
+    // none are connected yet, say "＋ connect" instead of a bare "edit" so it's
+    // obvious the Google calendar isn't hooked up on this device.
+    let hasPrivate = false;
+    try { const a = JSON.parse(localStorage.getItem(CAL_KEY)); hasPrivate = Array.isArray(a) && a.length > 0; } catch {}
+    $("calTodaySub").innerHTML = urls.length ? `<a href="#" id="calEdit">${hasPrivate ? "edit" : "＋ connect"}</a>` : "";
     const e1 = $("calEdit"); if (e1) e1.onclick = (e) => { e.preventDefault(); connectCalendar(); };
 
     if (!urls.length) {
@@ -709,12 +764,30 @@
       $("calTomorrowSub").textContent = tomorrowStart.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
       $("calWeekSub").textContent = `${dayAfterStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })}–${day(6).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
 
-      const settled = await Promise.allSettled(urls.map(async (u) => {
-        const text = await getText(u, { useProxy: calNeedsProxy(u) });
+      // Fetch every feed, but keep failures visible instead of swallowing
+      // them: a wrong URL (e.g. an HTML page instead of an .ics feed), a
+      // proxy 403, or a dead host used to render as a silent "No events".
+      const results = await Promise.all(urls.map(async (u) => {
         const src = calSource(u);
-        return parseICS(text).map((ev) => ({ ...ev, source: src }));
+        try {
+          const text = await getText(u, { useProxy: calNeedsProxy(u) });
+          if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("response is not an iCal feed (got HTML?)");
+          return { ok: true, events: parseICS(text).map((ev) => ({ ...ev, source: src })) };
+        } catch (err) {
+          console.warn("[dash] calendar feed failed:", u, err);
+          let host = src; try { host = new URL(u, location.href).hostname; } catch {}
+          return { ok: false, name: src || host };
+        }
       }));
-      const raw = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value);
+      const failedFeeds = results.filter((r) => !r.ok).map((r) => r.name);
+      const raw = results.filter((r) => r.ok).flatMap((r) => r.events);
+      if (!raw.length && failedFeeds.length) throw new Error("all feeds failed: " + failedFeeds.join(", "));
+      if (failedFeeds.length) {
+        // innerHTML += re-parses the subtitle and drops the edit link's click
+        // handler, so rebind it after appending the failure note.
+        $("calTodaySub").innerHTML += ` · <span class="err" style="font-size:inherit">⚠ ${esc(failedFeeds.join(", "))} failed</span>`;
+        const e2 = $("calEdit"); if (e2) e2.onclick = (e) => { e.preventDefault(); connectCalendar(); };
+      }
       // Non-recurring events pass through if upcoming; recurring events (most
       // Google Calendar entries) are expanded into the occurrences that fall
       // in our display window, since their DTSTART alone is usually stale.
@@ -730,11 +803,13 @@
       const tomorrow = all.filter((e) => e.start.date >= tomorrowStart && e.start.date < dayAfterStart).slice(0, max);
       const week = all.filter((e) => e.start.date >= dayAfterStart && e.start.date < weekEnd).slice(0, max);
 
-      bodies[0].innerHTML = renderEvents(today, "No events today.");
+      const todayEmpty = hasPrivate ? "No events today."
+        : `No events today. Google Calendar isn't connected on this device — use "＋ connect" above.`;
+      bodies[0].innerHTML = renderEvents(today, todayEmpty);
       bodies[1].innerHTML = renderEvents(tomorrow, "No events tomorrow.");
       bodies[2].innerHTML = renderEvents(week, "Nothing else this week.");
     } catch (e) {
-      const msg = `Calendar unavailable. Check the URLs (<a href="#" class="calEdit2">edit</a>) and that the proxy allows the host.`;
+      const msg = `Calendar unavailable — ${esc(e.message || "fetch failed")}. Check the URLs (<a href="#" class="calEdit2">edit</a>) and that the proxy allows the host.`;
       bodies.forEach((b) => fail(b, msg));
       document.querySelectorAll(".calEdit2").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); connectCalendar(); });
     }
