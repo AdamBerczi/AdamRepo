@@ -50,17 +50,19 @@ window.DASH_CONFIG = {
   },
 
   // ---- Portfolio -----------------------------------------------------------
-  // ⚠️ PUBLIC: this repo/site is public (even though the live page itself is
-  // now behind Cloudflare Access), so anything committed here is readable by
-  // anyone browsing the repo on GitHub. Left empty on purpose — enter your
-  // real holdings privately instead via "＋ holdings" in the Markets card,
-  // which stores them only in this browser's localStorage and is never
-  // committed. `holdings`/`cash` below are just the optional public fallback
-  // shown before you've entered anything privately.
+  // ⚠️ PUBLIC: this repo is public (the live page is behind Cloudflare Access,
+  // but the repo on GitHub is not), so these numbers are readable by anyone.
+  // The owner explicitly chose to commit them for convenience. A per-browser
+  // private override exists via "＋ holdings" on the Markets card
+  // (localStorage, wins over this) — submit an empty list there to fall back
+  // to these committed values. `cash` is added to the total, excluded from P/L.
   portfolio: {
     currency: "USD",
-    cash: 0,
-    holdings: [],
+    cash: 4008.00,
+    holdings: [
+      { symbol: "NVDA", shares: 40, cost: 30.46 },
+      { symbol: "MSFT", shares: 4,  cost: 336.80 },
+    ],
   },
 
   // ---- News ----------------------------------------------------------------
