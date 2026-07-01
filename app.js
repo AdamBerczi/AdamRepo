@@ -525,6 +525,36 @@
   }
 
   /* ========================================================================
+   * Gmail — unread pill in the status bar, via the same-origin /api/gmail
+   * (server/worker.js fetches Gmail's Atom inbox feed with an app-password
+   * Worker secret; the endpoint sits behind the Access login). The module
+   * stays hidden entirely until the server side is configured (503).
+   * ======================================================================*/
+  async function loadGmail() {
+    const mod = $("gmailCard"), pill = $("tbGmail"), body = $("gmailBody");
+    if (!mod) return;
+    try {
+      const r = await fetchT("/api/gmail", { cache: "no-store" });
+      if (r.status === 503) { mod.style.display = "none"; return; } // not configured → no pill
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      mod.style.display = "";
+      pill.innerHTML = d.count > 0 ? `✉ <span class="up" style="color:var(--accent)">${d.count}</span>` : "✉ 0";
+      $("gmailSub").textContent = d.count === 1 ? "1 unread" : `${d.count} unread`;
+      body.innerHTML = d.messages?.length ? `<div class="feed">${d.messages.map((m) => `
+        <div class="feed__item">
+          <a href="${esc(m.link || "https://mail.google.com")}" target="_blank" rel="noopener">${esc(m.subject || "(no subject)")}</a>
+          <div class="feed__meta"><span>${esc(m.from || m.email || "")}</span>${m.date ? `<span>· ${relTime(new Date(m.date))}</span>` : ""}</div>
+        </div>`).join("")}</div>`
+        : `<div class="skeleton">Inbox zero — nothing unread.</div>`;
+    } catch (e) {
+      mod.style.display = "";
+      pill.innerHTML = `✉ <span class="down">⚠</span>`;
+      fail(body, "Gmail unavailable — " + esc(e.message || "fetch failed") + ". Check the app password (see CLAUDE.md).");
+    }
+  }
+
+  /* ========================================================================
    * Formula 1 — Jolpica (Ergast successor). Keyless, CORS-enabled, no proxy.
    * Next race + a live countdown to qualifying, with Drivers/Constructors tabs.
    * ======================================================================*/
@@ -991,7 +1021,7 @@
    * Orchestration
    * ======================================================================*/
   function refreshAll() {
-    loadWeather(); loadStocks(); loadNews(); loadCalendar(); loadF1();
+    loadWeather(); loadStocks(); loadGmail(); loadNews(); loadCalendar(); loadF1();
     $("footStatus").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
   function schedule(fn, minutes) { if (minutes > 0) setInterval(fn, minutes * 60000); }
@@ -1005,6 +1035,7 @@
     refreshAll();
     schedule(loadWeather, 15);
     schedule(loadStocks, CFG.stocks?.refreshMinutes || 5);
+    schedule(loadGmail, 5);
     schedule(loadNews, CFG.news?.refreshMinutes || 20);
     schedule(loadCalendar, CFG.calendar?.refreshMinutes || 30);
     schedule(loadF1, CFG.f1?.refreshMinutes || 60);

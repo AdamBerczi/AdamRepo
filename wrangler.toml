@@ -30,3 +30,11 @@ binding = "ASSETS"
 [[kv_namespaces]]
 binding = "CALS"
 id = "b1fc9713d92d4855b8371140979c5a05"
+
+# Gmail unread pill (/api/gmail). The address isn't a secret; the app
+# password IS — set it once with:  npx wrangler secret put GMAIL_APP_PASSWORD
+# (requires 2FA on the Google account: myaccount.google.com → Security →
+# App passwords). Until the secret exists, /api/gmail returns 503 and the
+# pill stays hidden.
+[vars]
+GMAIL_USER = "adam.berczi@gmail.com"
