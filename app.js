@@ -150,21 +150,53 @@
     85: ["Snow showers", "🌨️"], 86: ["Snow showers", "❄️"],
     95: ["Thunderstorm", "⛈️"], 96: ["Thunderstorm", "⛈️"], 99: ["Thunderstorm", "⛈️"],
   };
+  // Try the browser's own location (GPS/Wi-Fi/IP) so weather reflects where
+  // you actually are, not just the home-base preset. Resolves to null (never
+  // rejects) on denial/timeout/unsupported browsers so callers can fall back.
+  function getGeoCoords() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation || CFG.location?.autoDetect === false) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => resolve(null),
+        { timeout: 5000, maximumAge: 10 * 60000 }
+      );
+    });
+  }
+
+  // Best-effort city name for detected coords. No key, CORS-enabled, designed
+  // for client-side use. Fails soft to null so the caller can show a generic label.
+  async function reverseGeocode(lat, lon) {
+    try {
+      const u = new URL("https://api.bigdatacloud.net/data/reverse-geocode-client");
+      u.search = new URLSearchParams({ latitude: lat, longitude: lon, localityLanguage: "en" });
+      const d = await getJSON(u.toString());
+      return d.city || d.locality || d.principalSubdivision || null;
+    } catch { return null; }
+  }
+
   async function loadWeather() {
     const body = $("weatherBody"), loc = CFG.location || {};
-    $("weatherLoc").textContent = loc.label || "";
     const imperial = loc.units === "imperial";
     try {
-      const u = new URL("https://api.open-meteo.com/v1/forecast");
-      u.search = new URLSearchParams({
-        latitude: loc.lat, longitude: loc.lon, timezone: loc.timezone || "auto",
-        current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m",
-        daily: "weather_code,temperature_2m_max,temperature_2m_min",
-        temperature_unit: imperial ? "fahrenheit" : "celsius",
-        wind_speed_unit: imperial ? "mph" : "kmh",
-        forecast_days: "5",
-      });
-      const d = await getJSON(u.toString());
+      const geo = await getGeoCoords();
+      const lat = geo?.lat ?? loc.lat, lon = geo?.lon ?? loc.lon;
+      const [d, label] = await Promise.all([
+        (() => {
+          const u = new URL("https://api.open-meteo.com/v1/forecast");
+          u.search = new URLSearchParams({
+            latitude: lat, longitude: lon, timezone: geo ? "auto" : (loc.timezone || "auto"),
+            current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m",
+            daily: "weather_code,temperature_2m_max,temperature_2m_min",
+            temperature_unit: imperial ? "fahrenheit" : "celsius",
+            wind_speed_unit: imperial ? "mph" : "kmh",
+            forecast_days: "5",
+          });
+          return getJSON(u.toString());
+        })(),
+        geo ? reverseGeocode(lat, lon) : Promise.resolve(loc.label || ""),
+      ]);
+      $("weatherLoc").textContent = label || (geo ? "My location" : (loc.label || ""));
       const c = d.current, [desc, ico] = WX[c.weather_code] || ["—", "•"];
       lastWeatherCode = c.weather_code; applyScene(lastWeatherCode);
       const tU = imperial ? "°F" : "°C", wU = imperial ? "mph" : "km/h";

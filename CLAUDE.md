@@ -52,6 +52,13 @@ need nothing; News, Markets, Calendar use the proxy):
   `localStorage["dash-calendar-urls"]`).
 - **Portfolio:** click "＋ holdings" in the Markets card → paste
   `SYMBOL SHARES [AVG_COST]` lines (stored in `localStorage["dash-portfolio"]`).
+  `config.js` ships with an empty committed portfolio on purpose (public repo)
+  — real holdings only ever live in this per-browser localStorage.
+- **Weather location:** the browser will prompt for location permission on
+  first load; allow it for weather where you actually are. Deny/ignore it and
+  the card silently falls back to the `location` preset in `config.js`
+  (Budapest). Set `location.autoDetect: false` to always use the preset and
+  skip the prompt entirely.
 
 **Most likely next requests:** design tweaks from live feedback (scene palettes,
 glass intensity, type, layout), add/remove widgets, add stocks/feeds/teams.
@@ -125,6 +132,15 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
 ## Data sources (and their quirks)
 
 - **Weather — Open-Meteo.** No key, CORS-friendly, called directly. Reliable.
+  Prefers the browser's own geolocation (`getGeoCoords()`) over the
+  `location` preset in `config.js`; falls back silently on denial/timeout/
+  unsupported browsers (`location.autoDetect: false` disables the prompt
+  entirely). When geolocation succeeds, the card's location label comes from
+  a best-effort reverse-geocode via **BigDataCloud's client-reverse-geocode**
+  endpoint (no key, CORS-enabled, built for client-side use — fails soft to
+  "My location" if it errors). The **clock/greeting always stay on the
+  `location.timezone` preset** regardless of detected weather location —
+  that's your home-base time, not wherever the browser happens to be.
 - **Formula 1 — Jolpica/Ergast** (`api.jolpi.ca/ergast/f1/...`). No key,
   CORS-enabled, called directly. Shows the next race, a live **countdown to
   qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
@@ -169,9 +185,11 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
     "＋ holdings" / "edit" — paste `SYMBOL SHARES [AVG_COST]` lines (e.g.
     `AAPL 10 150.25`). Stored in `localStorage["dash-portfolio"]`, never committed.
   - *Committed (public):* `CFG.portfolio` in `config.js` — `{ currency, cash,
-    holdings:[{symbol,shares,cost}] }`. ⚠️ The repo/site is public, so this
-    exposes the portfolio. `cash` is added to the displayed total but excluded
-    from gain/loss.
+    holdings:[{symbol,shares,cost}] }`. ⚠️ The repo/site is public, so anything
+    put here is visible to anyone browsing the repo on GitHub — **left empty
+    by default** (`holdings: [], cash: 0`) for exactly that reason. Real
+    numbers belong in the private localStorage form above. `cash` (if you do
+    commit it) is added to the displayed total but excluded from gain/loss.
   With avg cost it computes total gain/loss; without it, just value + day change.
   Mixed currencies are summed per-currency. Uses the Yahoo quote feed (via proxy).
 - **Add a news feed:** add `{ name, url }` to `news.feeds`, **then add the feed's
@@ -190,8 +208,11 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
     iCal format") go on the page via "＋ Connect calendar", one per line — stored
     in `localStorage["dash-calendar-urls"]`, never committed. Any new host still
     needs adding to `ALLOWED_HOSTS` if you later switch off allorigins.
-- **Change location:** edit `location` (lat/lon from latlong.net, IANA
-  `timezone`, `units: "metric" | "imperial"`).
+- **Change home-base location:** edit `location` (lat/lon from latlong.net,
+  IANA `timezone`, `units: "metric" | "imperial"`). This is the clock/greeting
+  timezone and the weather fallback. `location.autoDetect` (default `true`)
+  controls whether Weather asks the browser for your real location instead —
+  set `false` to always use this preset and skip the permission prompt.
 
 ## Testing changes
 
