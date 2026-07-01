@@ -9,9 +9,9 @@ read the "Pick up here" section first, then the rest fills in the details.
 ## ⭐ Pick up here (current state & next actions)
 
 **What this repo is:** a personal browser **start page** — a minimalist dashboard
-with live widgets (weather, markets/portfolio, a 3-card calendar, Formula 1, clock;
-news exists but is currently disabled). Zero build step: plain HTML/CSS/JS, no
-framework, no dependencies. Open `index.html` and it runs.
+with live widgets (weather, markets/portfolio, a 3-card calendar, Formula 1,
+custom-topic news, clock). Zero build step: plain HTML/CSS/JS, no framework,
+no dependencies. Open `index.html` and it runs.
 
 **Status:** ✅ **Live in production, owner-only.** Hosted on **Cloudflare
 Workers (static assets)** at **https://home.adam-berczi.workers.dev/**, gated
@@ -29,8 +29,8 @@ weather (geolocation-based, falls back to the Budapest preset), a markets
 watchlist that becomes a **portfolio** tracker (value + day change +
 gain/loss), a multi-feed calendar (incl. live pogdesign TV) split across
 **three cards — Today / Tomorrow / This week**, and a Formula 1 card (next
-race, qualifying countdown, standings tabs). News is built but **disabled**
-(`news.enabled: false` in `config.js`) — flip it back on to bring it back.
+race, qualifying countdown, standings tabs), and **custom-topic news** (top 5,
+via keyless Google News search RSS — topics set in `config.js`).
 The owner reviews changes on the live site and iterates.
 
 **Workflow:** develop on a feature branch → merge to `master` → push.
@@ -59,8 +59,10 @@ re-enabled):
    *(No-deploy alternative: uncomment the `api.allorigins.win` fallback line
    in `config.js`.)*
    **Redeploy needed:** the worker's User-Agent was changed to a real-browser
-   string (some feed hosts, e.g. pogdesign, reject bot-looking agents) — run
-   `cd proxy && npx wrangler deploy` again to pick it up.
+   string (some feed hosts, e.g. pogdesign, reject bot-looking agents) and
+   `news.google.com` was added to the allowlist (topic news feeds) — run
+   `cd proxy && npx wrangler deploy` again to pick both up. Until then the
+   News card will show its fail message (403 from the proxy).
 
 2. **Fix the TV calendar feed URL.** The committed
    `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is suspected to be a
@@ -204,19 +206,29 @@ the charcoal + dusty-rose family — see Styling).
   CORS-enabled, called directly. Shows the next race, a live **countdown to
   qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
   standings tabs with team-colour icons (`F1_TEAM` map). The card is
-  full-width (`.card--f1` span 6), the first card under the hero, with a
-  two-column `.f1-grid`. Grid order: hero → F1 → the three calendar cards
+  half-width (`.card--f1` span 3) beside the News card, with a two-column
+  `.f1-grid`. Grid order: hero → the three calendar cards → F1 + News
   (Weather/Markets are top-bar modules, not cards). (F1 *Fantasy* has no
   free public API — official needs login, the community scrape is stale;
   only paid APIs cover fantasy prices/points.)
+- **News — custom topics via Google News search RSS.** Each string in
+  `news.topics` (config.js) becomes a keyless Google News *search* feed
+  (`news.google.com/rss/search?q=<topic>` — host allowlisted in the proxy);
+  anything you'd type into Google News search works, including quoted
+  phrases. Feeds merge with any plain RSS in `news.feeds`, sort by recency
+  ("breaking" titles float to top with a badge), and cap at
+  `news.maxItems` (5) total. The card subtitle lists the active topics.
+  *Possible future:* AI-curated digest via the Claude API — must go through
+  a Worker holding `ANTHROPIC_API_KEY` as a Cloudflare secret (the repo is
+  public; a browser-side key would leak). Not built yet.
 - **Calendar (.ics) — three cards.** `loadCalendar()` fetches every connected
   feed once, merges the events, **expands recurring ones** (see below), then
   buckets them by local day boundary into **Today** / **Tomorrow** / **This
   week** (the 5 days after tomorrow) and renders each bucket into its own
   card via the shared `renderEvents()` helper. All three sit together in the
-  bottom row (`.card--cal` span 2 × 3 = 6), so they get equal height
-  automatically from the grid's default row-stretch — no explicit height CSS
-  needed, just keep them in the same DOM row.
+  first grid row under the hero (`.card--cal` span 2 × 3 = 6), so they get
+  equal height automatically from the grid's default row-stretch — no
+  explicit height CSS needed, just keep them in the same DOM row.
   `calendar.maxItems` caps events *per card*, not globally. The connect/edit
   control only lives on the Today card (one shared URL list feeds all three);
   it reads "＋ connect" until private (localStorage) feeds exist, then "edit".
@@ -260,9 +272,9 @@ touches nothing else on the account.
 
 ⚠️ **When you add a new news feed, calendar, or stock source to `config.js`, also
 add its hostname to `ALLOWED_HOSTS` in `proxy/worker.js` and redeploy**, or the
-proxy returns 403 for that host. Current allowlist: Yahoo Finance, BBC,
-Al Jazeera, NPR, The Verge, Hacker News (hnrss.org), Google Calendar,
-pogdesign.co.uk (TV calendar).
+proxy returns 403 for that host. Current allowlist: Yahoo Finance,
+Google News (topic feeds), BBC, Al Jazeera, NPR, The Verge, Hacker News
+(hnrss.org), Google Calendar, pogdesign.co.uk (TV calendar).
 
 No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
 
@@ -285,11 +297,12 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
     the displayed total but excluded from gain/loss.
   With avg cost it computes total gain/loss; without it, just value + day change.
   Mixed currencies are summed per-currency. Uses the Yahoo quote feed (via proxy).
-- **News (currently disabled, `news.enabled: false`):** add `{ name, url }` to
-  `news.feeds`, **then add the feed's hostname to `ALLOWED_HOSTS` and redeploy
-  the proxy.** Set `enabled: true` to bring the card back. News is set to
-  English breaking/important top-story feeds (BBC, Al Jazeera, NPR); titles
-  containing "breaking" are floated to the top and get a Breaking badge.
+- **Change news topics:** edit `news.topics` — plain strings, each becomes a
+  Google News search feed (quoted phrases and search operators work). No
+  proxy change needed (news.google.com is allowlisted). Plain RSS feeds can
+  still be added to `news.feeds` as `{ name, url }` — **those** need their
+  hostname in `ALLOWED_HOSTS` + a proxy redeploy. `maxItems` caps the total
+  shown (5). Titles containing "breaking" float to the top with a badge.
 - **Connect calendars (multi-feed):** events from all feeds are merged, sorted,
   and tagged by source. Two ways to add feeds:
   - *Committed (public):* `calendar.feeds` in `config.js` — array of .ics URL

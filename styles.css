@@ -238,11 +238,11 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
 }
 .card:hover { border-color: var(--panel-hover); }
 
-/* Rows (desktop): hero above the grid, F1 full-width, then the three
-   calendar cards. Weather + Markets live in the top bar as modules. */
-.card--f1       { grid-column: span 6; }
-.card--news     { grid-column: span 6; }
+/* Rows (desktop): hero, then the three calendar cards, then F1 + News
+   side by side. Weather + Markets live in the top bar as modules. */
 .card--cal      { grid-column: span 2; }
+.card--f1       { grid-column: span 3; }
+.card--news     { grid-column: span 3; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .card__head h2 {
