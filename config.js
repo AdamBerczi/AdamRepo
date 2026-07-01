@@ -11,13 +11,19 @@ window.DASH_CONFIG = {
   name: "Adam",
 
   // ---- Location & time -----------------------------------------------------
-  // Used by the weather widget and the clock. Find lat/lon at latlong.net.
+  // Used as the home-base timezone/greeting (clock always shows this city's
+  // time) and as the weather fallback. Find lat/lon at latlong.net.
   location: {
     label: "Budapest",
     lat: 47.4979,
     lon: 19.0402,
     timezone: "Europe/Budapest",
     units: "metric", // "metric" (°C, km/h) or "imperial" (°F, mph)
+    // When true, the Weather card asks the browser for your actual GPS/IP
+    // location and shows weather there instead of the preset above (falls
+    // back to the preset if permission is denied or unavailable). The clock
+    // and greeting always stay on the preset timezone above regardless.
+    autoDetect: true,
   },
 
   // ---- CORS proxy ----------------------------------------------------------
@@ -44,19 +50,17 @@ window.DASH_CONFIG = {
   },
 
   // ---- Portfolio -----------------------------------------------------------
-  // ⚠️ PUBLIC: this repo/site is public, so anything here is visible to anyone.
-  // Committed holdings shown in the Markets/Portfolio card. Live prices are
-  // fetched; you only specify shares + average cost per share. Optional `cash`
-  // is added to the total value. (A private alternative is to leave `holdings`
-  // empty and enter them on the page via "＋ holdings" — that stays in your
-  // browser's localStorage and is never committed; localStorage overrides this.)
+  // ⚠️ PUBLIC: this repo/site is public (even though the live page itself is
+  // now behind Cloudflare Access), so anything committed here is readable by
+  // anyone browsing the repo on GitHub. Left empty on purpose — enter your
+  // real holdings privately instead via "＋ holdings" in the Markets card,
+  // which stores them only in this browser's localStorage and is never
+  // committed. `holdings`/`cash` below are just the optional public fallback
+  // shown before you've entered anything privately.
   portfolio: {
     currency: "USD",
-    cash: 4008.00,
-    holdings: [
-      { symbol: "MSFT", shares: 4,  cost: 336.80 },
-      { symbol: "NVDA", shares: 40, cost: 30.46 },
-    ],
+    cash: 0,
+    holdings: [],
   },
 
   // ---- News ----------------------------------------------------------------
