@@ -107,9 +107,13 @@ window.DASH_CONFIG = {
     refreshMinutes: 30,
     url: "",
     // Public/non-secret .ics URLs (strings). Relative paths are served from this
-    // site (no proxy); cross-origin feeds go through the proxy. This is the live
-    // pogdesign TV calendar (auto-updating; /cat/view/<user> is the iCal feed).
-    feeds: ["https://www.pogdesign.co.uk/cat/view/AdamCorvus"],
+    // site (no proxy). `tv-shows.ics` is a committed *snapshot* of the
+    // pogdesign TV calendar — NOT live/auto-updating. `/cat/view/<user>` (the
+    // page you'd browse in a browser) turned out to 500 when fetched as a
+    // feed; it's the profile page, not the actual iCal export. Re-export from
+    // pogdesign.co.uk/cat and overwrite tv-shows.ics whenever your tracked
+    // shows change, or find the real "Calendar Feed" export URL to go live again.
+    feeds: ["tv-shows.ics"],
   },
 
   // ---- Theme ---------------------------------------------------------------
