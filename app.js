@@ -121,8 +121,12 @@
     const tz = CFG.location?.timezone;
     const opts = { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz };
     const [h, m] = now.toLocaleTimeString("en-GB", opts).split(":");
-    $("clock").innerHTML = `${h}<span>:</span>${m}`;
+    const clockHtml = `${h}<span>:</span>${m}`;
+    $("clock").innerHTML = clockHtml;                 // bar clock (small)
+    const hc = $("heroClock"); if (hc) hc.innerHTML = clockHtml; // hero clock (big)
     $("date").textContent = now.toLocaleDateString(undefined,
+      { weekday: "short", day: "numeric", month: "short", timeZone: tz });
+    const hd = $("heroDate"); if (hd) hd.textContent = now.toLocaleDateString(undefined,
       { weekday: "long", day: "numeric", month: "long", timeZone: tz });
     const hr = +now.toLocaleTimeString("en-GB", { hour: "2-digit", hour12: false, timeZone: tz });
     const part = hr < 5 ? "Good night" : hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
@@ -230,8 +234,10 @@
       const c = d.current, [desc, ico] = WX[c.weather_code] || ["—", "•"];
       lastWeatherCode = c.weather_code; applyScene(lastWeatherCode);
       const tU = imperial ? "°F" : "°C", wU = imperial ? "mph" : "km/h";
+      // bar pill: icon + temp + short place name (yasb-module style)
       const tb = document.getElementById("tbWeather");
-      if (tb) tb.textContent = `${ico} ${Math.round(c.temperature_2m)}${tU}`;
+      const place = String(label || "").split(",")[0].trim();
+      if (tb) tb.textContent = `${ico} ${Math.round(c.temperature_2m)}${tU}${place ? " · " + place : ""}`;
       const days = d.daily.time.map((t, i) => {
         const [, dico] = WX[d.daily.weather_code[i]] || ["", "•"];
         const dn = new Date(t).toLocaleDateString(undefined, { weekday: "short" });
@@ -434,16 +440,34 @@
     $("stocksSub").innerHTML = `<a href="#" id="pfManage">${holdings.length ? "edit" : "＋ holdings"}</a>`;
     const mb = $("pfManage"); if (mb) mb.onclick = (e) => { e.preventDefault(); managePortfolio(); };
 
+    const pill = $("tbMarket");
     try {
       const rows = await fetchQuotes(symbols);
       if (!rows.length) throw new Error("no data");
       if (title) title.textContent = holdings.length ? "Portfolio" : "Markets";
+      const bySym = Object.fromEntries(rows.map((q) => [q.symbol, q]));
       if (holdings.length) {
-        renderPortfolio(body, holdings, Object.fromEntries(rows.map((q) => [q.symbol, q])));
+        renderPortfolio(body, holdings, bySym);
+        // bar pill: today's P/L across holdings (assumes one primary currency)
+        let day = 0, val = 0;
+        holdings.forEach((h) => {
+          const q = bySym[h.symbol]; if (!q) return;
+          day += (q.regularMarketChange ?? 0) * h.shares;
+          val += (q.regularMarketPrice ?? 0) * h.shares;
+        });
+        const pct = val - day ? (day / (val - day)) * 100 : 0;
+        const cls = day >= 0 ? "up" : "down", arrow = day >= 0 ? "▲" : "▼";
+        if (pill) pill.innerHTML =
+          `<span class="${cls}">${arrow} ${day >= 0 ? "+" : "−"}${fmtCur(Math.abs(day), cashCur())} (${Math.abs(pct).toFixed(2)}%)</span>`;
       } else {
         body.innerHTML = rows.map(renderTick).join("");
+        // watchlist mode: show the day's average move across the list
+        const avg = rows.reduce((s, q) => s + (q.regularMarketChangePercent ?? 0), 0) / rows.length;
+        const cls = avg >= 0 ? "up" : "down", arrow = avg >= 0 ? "▲" : "▼";
+        if (pill) pill.innerHTML = `markets <span class="${cls}">${arrow} ${Math.abs(avg).toFixed(2)}%</span>`;
       }
     } catch (e) {
+      if (pill) pill.innerHTML = `markets <span class="down">⚠</span>`;
       fail(body, "Markets unavailable — the quote source couldn't be reached. Make sure the CORS proxy is deployed (or use the allorigins fallback in config.js). See CLAUDE.md.");
     }
   }
@@ -857,6 +881,18 @@
     schedule(loadCalendar, CFG.calendar?.refreshMinutes || 30);
     schedule(loadF1, CFG.f1?.refreshMinutes || 60);
     $("refreshBtn").addEventListener("click", refreshAll);
+    // Bar modules (weather/markets) open on hover via CSS; clicking toggles
+    // them too so they work on touch. Clicking anywhere else closes them.
+    document.querySelectorAll(".bar-module").forEach((m) => {
+      m.addEventListener("click", (e) => {
+        if (e.target.closest("a, button")) return; // don't hijack edit links
+        m.classList.toggle("is-open");
+      });
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".bar-module"))
+        document.querySelectorAll(".bar-module.is-open").forEach((m) => m.classList.remove("is-open"));
+    });
     // Refresh when the tab regains focus after being hidden a while.
     let hidden = 0;
     document.addEventListener("visibilitychange", () => {

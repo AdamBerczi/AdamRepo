@@ -157,10 +157,21 @@ the charcoal + dusty-rose family — see Styling).
   desaturates toward grey. Don't reintroduce blues/teals/purples per hour;
   that breaks the identity. Colors are `@property`-registered so changes
   cross-fade.
-- **Chrome.** No search bar or links grid. Slim flat **status bars**
-  (yasb-style, 40px, mono 12px): top = brand + serif-italic greeting left;
-  weather, clock, date, theme toggle right. Bottom = brand left,
-  updated-time + refresh right.
+- **Chrome & layout.** No search bar or links grid. Slim flat **status bars**
+  (yasb-style, 40px, mono 12px): top = brand + `adam@home` left; **Weather
+  and Markets live in the top bar as `.bar-module` pills** with flat
+  `.dropdown` panels (open on hover/focus, click-toggle for touch via
+  `.is-open`; clicking outside closes). The weather pill shows
+  `icon temp · place`; the markets pill shows **today's portfolio P/L**
+  (`▲ +$142 (1.2%)`, colored) — or the watchlist's average day move when no
+  holdings. Their dropdown bodies keep the old ids (`weatherBody`,
+  `stocksBody`, `weatherCard`, `stocksCard`) so the widget functions are
+  unchanged. Below the bar, the page is a vertically-centered "desktop":
+  a **hero** (giant mono clock with rose colon `#heroClock`, serif-italic
+  greeting, long date) → full-width F1 card → the three calendar cards.
+  Bottom bar = brand left, updated-time + refresh right. The bar clock/date
+  (`#clock`/`#date`, short format) and hero clock/date both tick from
+  `tickClock()`.
 - **Theme.** `[data-theme="dark|light"]` on `<html>`, persisted in
   `localStorage["dash-theme"]`; `"auto"` follows the OS. Dark = the dusk
   rice; light = a warm **paper** variant (cream surfaces, same rose
@@ -193,12 +204,11 @@ the charcoal + dusty-rose family — see Styling).
   CORS-enabled, called directly. Shows the next race, a live **countdown to
   qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
   standings tabs with team-colour icons (`F1_TEAM` map). The card is
-  full-width (`.card--f1` span 6) and sits in the **top row** of the grid,
-  with a two-column `.f1-grid`. Row order: F1 → Weather+Stocks (span 3+3
-  while News is disabled; drop back to 2+2+2 if News returns) → the three
-  calendar cards. (F1 *Fantasy* has no free public API — official needs
-  login, the community scrape is stale; only paid APIs cover fantasy
-  prices/points.)
+  full-width (`.card--f1` span 6), the first card under the hero, with a
+  two-column `.f1-grid`. Grid order: hero → F1 → the three calendar cards
+  (Weather/Markets are top-bar modules, not cards). (F1 *Fantasy* has no
+  free public API — official needs login, the community scrape is stale;
+  only paid APIs cover fantasy prices/points.)
 - **Calendar (.ics) — three cards.** `loadCalendar()` fetches every connected
   feed once, merges the events, **expands recurring ones** (see below), then
   buckets them by local day boundary into **Today** / **Tomorrow** / **This

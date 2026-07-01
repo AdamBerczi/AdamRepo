@@ -154,24 +154,64 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
 
 .tb-brand, .bb-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--accent); }
 .tb-brand { font-size: 15px; }
-.tb-greeting {
-  font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--text-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.tb-wx { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.tb-user { font-size: 12px; color: var(--text-faint); }
+.tb-user::before { content: "· "; color: var(--line); }
 .tb-sep { width: 1px; height: 14px; background: var(--line); }
 .tb-clock { font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
 .tb-date { font-size: 12px; color: var(--text-faint); }
 .bb-brand { color: var(--text-faint); }
 .bottombar #footStatus { font-size: 11px; color: var(--text-faint); }
 
+/* ---- Bar modules (weather / markets pills with hover dropdowns) ----------*/
+.bar-module { position: relative; }
+.bar-module__pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  padding: 3px 9px; border-radius: 7px; border: 1px solid transparent;
+  cursor: default; white-space: nowrap; transition: border-color .15s, color .15s;
+}
+.bar-module:hover .bar-module__pill,
+.bar-module:focus-within .bar-module__pill,
+.bar-module.is-open .bar-module__pill { border-color: var(--panel-border); color: var(--text); }
+.bar-module__pill .up { color: var(--up); }
+.bar-module__pill .down { color: var(--down); }
+
+.dropdown {
+  display: none; position: absolute; top: calc(100% + 9px); right: 0;
+  width: 330px; max-width: 92vw;
+  background: var(--panel-2);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 18px;
+  flex-direction: column; gap: 12px; z-index: 9;
+}
+/* invisible bridge so the pointer can travel pill → panel without closing */
+.dropdown::before { content: ""; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
+.bar-module:hover .dropdown,
+.bar-module:focus-within .dropdown,
+.bar-module.is-open .dropdown { display: flex; }
+
+/* ---- Hero (desktop focal point) -------------------------------------------*/
+.hero { text-align: center; padding: clamp(8px, 4vh, 40px) 0 clamp(4px, 2vh, 18px); }
+.hero__clock {
+  font-size: clamp(64px, 11vw, 112px); font-weight: 600;
+  letter-spacing: -0.055em; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.hero__clock span { color: var(--accent); font-weight: 400; }
+.hero__greeting {
+  font-family: var(--serif); font-style: italic; font-size: clamp(20px, 2.6vw, 27px);
+  color: var(--text-dim); margin-top: 10px;
+}
+.hero__date { font-size: 12px; color: var(--text-faint); letter-spacing: .14em; text-transform: lowercase; margin-top: 8px; }
+
 /* ---- Layout --------------------------------------------------------------*/
 .dash {
   position: relative; z-index: 1;
   max-width: 1180px; margin: 0 auto;
-  padding: calc(var(--bar-h) + clamp(20px, 4vw, 40px)) clamp(18px, 4vw, 40px) calc(var(--bar-h) + 26px);
-  display: flex; flex-direction: column; gap: clamp(18px, 3vw, 28px);
-  min-height: 100%;
+  padding: calc(var(--bar-h) + clamp(16px, 3vw, 32px)) clamp(18px, 4vw, 40px) calc(var(--bar-h) + 26px);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(16px, 2.5vw, 26px);
+  min-height: 100vh;
 }
 
 /* ---- Buttons (flat, hairline) ---------------------------------------------*/
@@ -198,13 +238,10 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
 }
 .card:hover { border-color: var(--panel-hover); }
 
-/* Rows (desktop): F1 full-width on top, then Weather+Stocks (3+3 fills the
-   row while News is disabled — drop back to 2+2+2 if News returns), then the
-   three calendar cards. */
+/* Rows (desktop): hero above the grid, F1 full-width, then the three
+   calendar cards. Weather + Markets live in the top bar as modules. */
 .card--f1       { grid-column: span 6; }
-.card--weather  { grid-column: span 3; }
-.card--stocks   { grid-column: span 3; }
-.card--news     { grid-column: span 2; }
+.card--news     { grid-column: span 6; }
 .card--cal      { grid-column: span 2; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -303,7 +340,7 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
 /* ---- Responsive --------------------------------------------------------------*/
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  .card--weather, .card--stocks, .card--cal { grid-column: span 1; }
+  .card--cal { grid-column: span 1; }
   .card--news, .card--f1 { grid-column: span 2; grid-row: auto; }
   .f1-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -311,5 +348,5 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
   .grid { grid-template-columns: 1fr; }
   .card { grid-column: span 1; grid-row: auto; }
   .f1-grid { grid-template-columns: 1fr; }
-  .tb-greeting, .tb-date { display: none; }
+  .tb-user, .tb-date { display: none; }
 }
