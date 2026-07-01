@@ -80,10 +80,12 @@ re-enabled):
    `calendar.feeds` back to that URL for a live/auto-updating feed.
 
 **Per-device setup the owner does in the browser (secrets never committed):**
-- **Calendar:** click "＋ Connect calendar" (on the **Today** card) → paste
-  secret iCal URLs, one per line (Google + pogdesign TV supported; stored in
-  `localStorage["dash-calendar-urls"]`). One shared connection feeds all
-  three calendar cards.
+- **Calendar:** click "＋ connect" / "edit" (on the **Today** card) → a modal
+  opens with a real `<textarea>` (not `window.prompt()` — that's single-line
+  and unreliable for pasting several URLs). Paste as many secret iCal URLs as
+  needed, **one per line — any number of Google calendars work, plus TV,
+  etc.**, all merged. Stored in `localStorage["dash-calendar-urls"]`. One
+  shared connection feeds all three calendar cards.
 - **Portfolio:** the owner's real holdings (4008 cash, 40 NVDA, 4 MSFT) are
   **committed in `config.js`** — the owner explicitly chose this for
   convenience despite the public repo. A per-browser override exists via
@@ -260,10 +262,20 @@ the charcoal + dusty-rose family — see Styling).
     weekly) — covers the common Google Calendar patterns, not the full spec
     (no `BYMONTHDAY`/`BYSETPOS`/etc.). Only expands within the display
     window (today → +7 days), so it stays fast even for years-old series.
+  - **Connecting calendars — multiple Google calendars supported.** The
+    connect UI ("＋ connect"/"edit" on Today) is a modal with a real
+    `<textarea>` (`#calModalOverlay`, wired in `initCalModal()`), not
+    `window.prompt()` — a native prompt is single-line and can't reliably
+    hold multi-URL paste/typing (Enter submits the whole dialog). Any number
+    of lines/feeds work: several Google calendars, TV, whatever. The modal
+    edits **only the private (localStorage) list** via `getPrivateCalUrls()`
+    — it used to pre-fill from the full merged list (`getCalUrls()`, which
+    includes committed feeds like `tv-shows.ics`), so saving without
+    manually deleting the committed line would fail the `https://`
+    validation. Fixed by separating "what gets fetched" (`getCalUrls()`,
+    private + committed) from "what the modal edits" (private only).
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
-  (News is currently disabled — see Status above — but the code/proxy path
-  is untouched so re-enabling is a one-line `config.js` flip.)
 
 ### The CORS proxy (`/proxy`)
 

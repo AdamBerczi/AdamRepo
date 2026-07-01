@@ -337,6 +337,38 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
 .evt__time { color: var(--text-faint); font-size: 10px; }
 .evt__src { color: var(--accent); }
 
+/* ---- Calendar connect modal ------------------------------------------------*/
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 20;
+  background: rgba(8, 7, 9, 0.6);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.is-open { display: flex; }
+.modal {
+  width: 420px; max-width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 20px 22px;
+}
+.modal h3 { font-size: 13px; font-weight: 600; letter-spacing: .04em; margin-bottom: 8px; }
+.modal__hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 10px; }
+.modal__tips { font-size: 11px; color: var(--text-faint); line-height: 1.6; margin: 0 0 12px 16px; }
+.modal textarea#calModalInput {
+  width: 100%; resize: vertical; min-height: 110px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border); border-radius: 8px;
+  color: var(--text); font-family: var(--font); font-size: 12px; line-height: 1.6;
+  padding: 10px 11px; outline: none;
+}
+.modal textarea#calModalInput:focus { border-color: var(--panel-hover); }
+.modal__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.modal__err { font-size: 11px; color: var(--down); }
+.modal__actions { display: flex; gap: 8px; }
+.modal__save { border-color: var(--accent); color: var(--accent); }
+.modal__save:hover { background: var(--accent); color: #17141a; }
+.modal__note { font-size: 10px; color: var(--text-faint); margin-top: 10px; }
+
 /* ---- Responsive --------------------------------------------------------------*/
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, 1fr); }

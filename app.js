@@ -726,11 +726,19 @@
   // are supported (e.g. a Google calendar + a pogdesign TV calendar); events
   // from all of them are merged, sorted, and tagged with a short source label.
   const CAL_KEY = "dash-calendar-urls";
-  function getCalUrls() {
+  // Private URLs only (localStorage) — this is what the connect modal edits.
+  // Any number of feeds is supported (multiple Google calendars, TV, etc.);
+  // they're just lines in the textarea, merged like every other feed.
+  function getPrivateCalUrls() {
     const out = [];
     try { const a = JSON.parse(localStorage.getItem(CAL_KEY)); if (Array.isArray(a)) out.push(...a); } catch {}
     const legacy = localStorage.getItem("dash-calendar-url"); if (legacy) out.push(legacy); // migrate old single key
+    return [...new Set(out.filter(Boolean))];
+  }
+  // Private + committed (config.js) feeds — this is what actually gets fetched.
+  function getCalUrls() {
     const cfg = CFG.calendar || {};
+    const out = getPrivateCalUrls();
     if (cfg.url) out.push(cfg.url);
     (cfg.feeds || []).forEach((f) => out.push(typeof f === "string" ? f : f && f.url));
     return [...new Set(out.filter(Boolean))];
@@ -775,11 +783,10 @@
     if (!cfg.enabled) { cards.forEach((c) => c.style.display = "none"); return; }
 
     const urls = getCalUrls();
-    // Private (localStorage) feeds are where the secret Google URL lives; if
-    // none are connected yet, say "＋ connect" instead of a bare "edit" so it's
-    // obvious the Google calendar isn't hooked up on this device.
-    let hasPrivate = false;
-    try { const a = JSON.parse(localStorage.getItem(CAL_KEY)); hasPrivate = Array.isArray(a) && a.length > 0; } catch {}
+    // Private (localStorage) feeds are where secret Google calendar URLs
+    // live; if none are connected yet, say "＋ connect" instead of a bare
+    // "edit" so it's obvious no personal calendar is hooked up on this device.
+    const hasPrivate = getPrivateCalUrls().length > 0;
     $("calTodaySub").innerHTML = urls.length ? `<a href="#" id="calEdit">${hasPrivate ? "edit" : "＋ connect"}</a>` : "";
     const e1 = $("calEdit"); if (e1) e1.onclick = (e) => { e.preventDefault(); connectCalendar(); };
 
@@ -851,22 +858,38 @@
     }
   }
 
-  // Prompt for one or more iCal URLs (one per line). Stored locally only.
+  // Modal for entering one or more private iCal URLs — a real <textarea>
+  // instead of window.prompt(), which is single-line and unreliable for
+  // pasting/typing several calendar URLs (a native prompt() can't hold
+  // multi-line input reliably; e.g. Enter submits the whole dialog). Any
+  // number of feeds is supported: several Google calendars, TV, etc. — every
+  // non-empty line becomes its own feed, merged with the committed ones.
   function connectCalendar() {
-    const current = getCalUrls().join("\n");
-    const input = prompt(
-      "Paste iCal / .ics URLs — one per line. Multiple calendars are supported:\n" +
-      "• Google: Settings → 'Integrate calendar' → 'Secret address in iCal format'\n" +
-      "• pogdesign TV: pogdesign.co.uk/cat → pick shows → copy the iCal subscribe URL\n\n" +
-      "Stored only in this browser. Submit empty to clear all.",
-      current
-    );
-    if (input === null) return; // cancelled
-    const urls = input.split("\n").map((l) => l.trim().replace(/^webcal:\/\//i, "https://")).filter(Boolean);
-    if (urls.some((u) => !/^https:\/\//i.test(u))) { alert("Each line must be an https:// URL."); return; }
+    const overlay = $("calModalOverlay"), input = $("calModalInput"), err = $("calModalErr");
+    input.value = getPrivateCalUrls().join("\n");
+    err.textContent = "";
+    overlay.classList.add("is-open");
+    input.focus();
+  }
+  function closeCalModal() { $("calModalOverlay").classList.remove("is-open"); }
+  function saveCalModal() {
+    const input = $("calModalInput"), err = $("calModalErr");
+    const urls = input.value.split("\n").map((l) => l.trim().replace(/^webcal:\/\//i, "https://")).filter(Boolean);
+    const bad = urls.filter((u) => !/^https:\/\//i.test(u));
+    if (bad.length) { err.textContent = `Not a valid https:// URL: "${bad[0].slice(0, 40)}"`; return; }
     localStorage.setItem(CAL_KEY, JSON.stringify(urls));
     localStorage.removeItem("dash-calendar-url");
+    closeCalModal();
     loadCalendar();
+  }
+  function initCalModal() {
+    const overlay = $("calModalOverlay");
+    $("calModalSave").addEventListener("click", saveCalModal);
+    $("calModalCancel").addEventListener("click", closeCalModal);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeCalModal(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && overlay.classList.contains("is-open")) closeCalModal();
+    });
   }
 
   /* ========================================================================
@@ -880,6 +903,7 @@
 
   function init() {
     initTheme();
+    initCalModal();
     tickClock(); setInterval(tickClock, 1000 * 15);
     setInterval(() => applyScene(lastWeatherCode), 10 * 60000); // track time-of-day
     setInterval(updateQualiCountdown, 1000); // live F1 qualifying countdown
