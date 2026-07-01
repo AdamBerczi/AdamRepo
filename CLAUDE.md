@@ -13,19 +13,24 @@ with live widgets (weather, markets/portfolio, news, calendar, Formula 1, clock)
 Zero build step: plain HTML/CSS/JS, no framework, no dependencies.
 Open `index.html` and it runs.
 
-**Status:** ✅ **Live in production.** Merged to `master` and published via
-GitHub Pages at **https://adamberczi.github.io/AdamRepo/** (Pages is enabled,
-serving `master` / root). Current look: a dynamic time-of-day + weather **scene**
-background with **glassmorphic** widgets, hero clock, serif-italic greeting.
-Features include weather, a markets watchlist that becomes a **portfolio**
-tracker (value + day change + gain/loss), breaking news, a multi-feed calendar
-(incl. live pogdesign TV), and a Formula 1 card (next race, qualifying countdown,
+**Status:** ✅ **Live in production, owner-only.** Hosted on **Cloudflare
+Workers (static assets)** at **https://home.adam-berczi.workers.dev/**, gated
+by **Cloudflare Access** restricted to `adam.berczi@gmail.com` (email
+one-time-PIN login required before the page loads). The old public GitHub
+Pages copy (`https://adamberczi.github.io/AdamRepo/`) is being turned off.
+Current look: a dynamic time-of-day + weather **scene** background with
+**glassmorphic** widgets, hero clock, serif-italic greeting. Features include
+weather, a markets watchlist that becomes a **portfolio** tracker (value + day
+change + gain/loss), breaking news, a multi-feed calendar (incl. live
+pogdesign TV), and a Formula 1 card (next race, qualifying countdown,
 standings tabs). The owner reviews changes on the live site and iterates.
 
-**Workflow:** develop on a feature branch → merge to `master` → push. Pages
-auto-deploys in ~1 min (hard-refresh `Ctrl+Shift+R` to dodge CSS/JS caching).
+**Workflow:** develop on a feature branch → merge to `master` → push.
+Cloudflare auto-deploys the Worker in ~1 min (hard-refresh `Ctrl+Shift+R` to
+dodge CSS/JS caching). Since the site now requires an Access login, the owner
+verifies changes after signing in with the OTP email.
 
-**One owner-only action left** (the page works without it — Weather + F1
+**Owner-only actions left** (the page works without these — Weather + F1
 need nothing; News, Markets, Calendar use the proxy):
 
 1. **Deploy the CORS proxy Worker.** On the owner's machine:
@@ -37,8 +42,9 @@ need nothing; News, Markets, Calendar use the proxy):
    Publishes a **separate** Worker `personal-dash-proxy` to
    `https://personal-dash-proxy.adam-berczi.workers.dev/` — the URL `config.js`
    already points at. Does **not** touch the existing `gamebook-platform`
-   Worker. *(No-deploy alternative: uncomment the `api.allorigins.win` fallback
-   line in `config.js`.)*
+   Worker (or the `home` Worker serving the site itself).
+   *(No-deploy alternative: uncomment the `api.allorigins.win` fallback line
+   in `config.js`.)*
 
 **Per-device setup the owner does in the browser (secrets never committed):**
 - **Calendar:** click "＋ Connect calendar" → paste secret iCal URLs, one per
@@ -71,10 +77,14 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
 
 - Owner: Adam (email `adam.berczi@gmail.com`).
 - Location preset: **Budapest** (lat 47.4979, lon 19.0402, `Europe/Budapest`, metric).
-- GitHub repo: `adamberczi/adamrepo`; site repo root served by Pages on `master`.
+- GitHub repo: `adamberczi/adamrepo`; `master` is the deploy branch (Cloudflare
+  builds the site Worker from it; GitHub Pages, formerly also serving `master`,
+  is being turned off).
 - Cloudflare account subdomain: `adam-berczi` (`*.adam-berczi.workers.dev`).
-  An unrelated Worker `gamebook-platform` already exists there — **do not modify
-  or overwrite it.** The proxy here is a deliberately separate Worker.
+  Two Workers used by this project: `home` (the site itself, static assets,
+  gated by Cloudflare Access) and `personal-dash-proxy` (the CORS proxy,
+  below). An unrelated Worker `gamebook-platform` already exists on the
+  account too — **do not modify or overwrite it.**
 - Dev happens on feature branches; merge to `master` to publish.
 
 ## Architecture & conventions
@@ -195,5 +205,15 @@ toggle works; layout holds at mobile width.
 
 ## Deployment
 
-GitHub Pages serves the repo root on `master`. Merge a feature branch to
-`master` to publish. The proxy is deployed separately via wrangler (above).
+The site is served by the Cloudflare Worker `home` at
+**https://home.adam-berczi.workers.dev/** (repo root as static assets, no
+build step), auto-deploying on push to `master`. **Cloudflare Access** sits in
+front of it, restricted to `adam.berczi@gmail.com` — every visitor gets an
+email one-time-PIN challenge before the page loads; nobody else can pass.
+GitHub Pages (`https://adamberczi.github.io/AdamRepo/`) formerly served the
+same public copy from `master` and is being turned off (repo Settings →
+Pages → Source: None), so no unauthenticated copy stays live. The CORS proxy
+(`personal-dash-proxy`) is a separate Worker, deployed independently via
+wrangler (above). No code changes were needed for the migration — `index.html`
+only uses relative asset paths, so it serves identically from repo root under
+either host.
