@@ -69,8 +69,9 @@ window.DASH_CONFIG = {
   // recency; items whose title contains "breaking" are floated to the top.
   // Any RSS/Atom URL works — but add its hostname to ALLOWED_HOSTS in
   // proxy/worker.js (and redeploy) or the proxy returns 403.
+  // Currently disabled (card hides itself) — set enabled: true to bring it back.
   news: {
-    enabled: true,
+    enabled: false,
     maxItems: 9,
     refreshMinutes: 15,
     feeds: [
@@ -92,11 +93,13 @@ window.DASH_CONFIG = {
   // ---- Calendar ------------------------------------------------------------
   // iCal URLs are SECRET (anyone with one can read that calendar), so they are
   // NOT stored here. Connect them from the page: click "＋ Connect calendar" in
-  // the Calendar card and paste one URL per line. Multiple feeds are merged —
+  // the Today card and paste one URL per line. Multiple feeds are merged —
   // e.g. a Google calendar ("Integrate calendar" → "Secret address in iCal
   // format") plus a pogdesign TV calendar (pogdesign.co.uk/cat → pick shows →
   // iCal subscribe URL). Saved only in your browser's localStorage.
   // `url`/`feeds` below are optional non-secret fallbacks — usually left empty.
+  // Shown as three cards — Today / Tomorrow / This week (the 5 days after
+  // tomorrow) — merging all feeds above. `maxItems` caps events per card.
   calendar: {
     enabled: true,
     maxItems: 7,

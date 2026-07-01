@@ -609,46 +609,74 @@
   // cross-origin feeds (Google, pogdesign live) go through the CORS proxy.
   const calNeedsProxy = (u) => /^https?:\/\//i.test(u) && new URL(u, location.href).origin !== location.origin;
 
+  // Renders a bucket of events using the existing .evt list markup, or an
+  // empty-state message when the bucket has nothing in it.
+  function renderEvents(events, emptyMsg) {
+    if (!events.length) return `<div class="skeleton">${emptyMsg}</div>`;
+    return events.map((e) => {
+      const d = e.start.date;
+      const time = e.start.allDay ? "All day"
+        : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      const src = e.source ? ` · <span class="evt__src">${esc(e.source)}</span>` : "";
+      return `<div class="evt">
+        <div class="evt__date"><b>${d.getDate()}</b><span>${d.toLocaleDateString(undefined, { month: "short" })}</span></div>
+        <div class="evt__body">${esc(e.summary || "(untitled)")}
+          <div class="evt__time">${time}${src}${e.location ? " · " + esc(e.location.slice(0, 24)) : ""}</div></div>
+      </div>`;
+    }).join("");
+  }
+
+  // Calendar is split into three cards — Today / Tomorrow / This week (the 5
+  // days after tomorrow) — all fed by the same merged, multi-feed event list
+  // (Google + pogdesign TV, etc.), just bucketed by day.
   async function loadCalendar() {
-    const body = $("calendarBody"), cfg = CFG.calendar || {};
-    if (!cfg.enabled) { $("calendarCard").style.display = "none"; return; }
+    const cfg = CFG.calendar || {};
+    const cards = [$("calTodayCard"), $("calTomorrowCard"), $("calWeekCard")];
+    const bodies = [$("calTodayBody"), $("calTomorrowBody"), $("calWeekBody")];
+    if (!cfg.enabled) { cards.forEach((c) => c.style.display = "none"); return; }
+
     const urls = getCalUrls();
-    $("calSub").innerHTML = urls.length ? `<a href="#" id="calEdit">edit</a>` : "";
+    $("calTodaySub").innerHTML = urls.length ? `<a href="#" id="calEdit">edit</a>` : "";
     const e1 = $("calEdit"); if (e1) e1.onclick = (e) => { e.preventDefault(); connectCalendar(); };
 
     if (!urls.length) {
-      body.innerHTML = `<div class="skeleton">No calendar connected.<br>
+      bodies[0].innerHTML = `<div class="skeleton">No calendar connected.<br>
         <button class="ghost-btn ghost-btn--sm" id="calConnect" style="margin-top:10px">＋ Connect calendar</button></div>`;
       $("calConnect").onclick = connectCalendar;
+      bodies[1].innerHTML = `<div class="skeleton">Connect a calendar (Today card) to see more.</div>`;
+      bodies[2].innerHTML = `<div class="skeleton">Connect a calendar (Today card) to see more.</div>`;
+      $("calTomorrowSub").textContent = ""; $("calWeekSub").textContent = "";
       return;
     }
     try {
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const day = (n) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + n);
+      const todayStart = day(0), tomorrowStart = day(1), dayAfterStart = day(2), weekEnd = day(7);
+
+      $("calTomorrowSub").textContent = tomorrowStart.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+      $("calWeekSub").textContent = `${dayAfterStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })}–${day(6).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+
       const settled = await Promise.allSettled(urls.map(async (u) => {
         const text = await getText(u, { useProxy: calNeedsProxy(u) });
         const src = calSource(u);
         return parseICS(text).map((ev) => ({ ...ev, source: src }));
       }));
-      const events = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value)
-        .filter((e) => e.start && e.start.date >= start)
-        .sort((a, b) => a.start.date - b.start.date)
-        .slice(0, cfg.maxItems || 6);
-      if (!events.length) { body.innerHTML = `<div class="skeleton">No upcoming events.</div>`; return; }
-      body.innerHTML = events.map((e) => {
-        const d = e.start.date;
-        const time = e.start.allDay ? "All day"
-          : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-        const src = e.source ? ` · <span class="evt__src">${esc(e.source)}</span>` : "";
-        return `<div class="evt">
-          <div class="evt__date"><b>${d.getDate()}</b><span>${d.toLocaleDateString(undefined, { month: "short" })}</span></div>
-          <div class="evt__body">${esc(e.summary || "(untitled)")}
-            <div class="evt__time">${time}${src}${e.location ? " · " + esc(e.location.slice(0, 24)) : ""}</div></div>
-        </div>`;
-      }).join("");
+      const all = settled.filter((s) => s.status === "fulfilled").flatMap((s) => s.value)
+        .filter((e) => e.start && e.start.date >= todayStart)
+        .sort((a, b) => a.start.date - b.start.date);
+
+      const max = cfg.maxItems || 6;
+      const today = all.filter((e) => e.start.date < tomorrowStart).slice(0, max);
+      const tomorrow = all.filter((e) => e.start.date >= tomorrowStart && e.start.date < dayAfterStart).slice(0, max);
+      const week = all.filter((e) => e.start.date >= dayAfterStart && e.start.date < weekEnd).slice(0, max);
+
+      bodies[0].innerHTML = renderEvents(today, "No events today.");
+      bodies[1].innerHTML = renderEvents(tomorrow, "No events tomorrow.");
+      bodies[2].innerHTML = renderEvents(week, "Nothing else this week.");
     } catch (e) {
-      fail(body, `Calendar unavailable. Check the URLs (<a href="#" id="calEdit2">edit</a>) and that the proxy allows the host.`);
-      const b2 = $("calEdit2"); if (b2) b2.onclick = (ev) => { ev.preventDefault(); connectCalendar(); };
+      const msg = `Calendar unavailable. Check the URLs (<a href="#" class="calEdit2">edit</a>) and that the proxy allows the host.`;
+      bodies.forEach((b) => fail(b, msg));
+      document.querySelectorAll(".calEdit2").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); connectCalendar(); });
     }
   }
 

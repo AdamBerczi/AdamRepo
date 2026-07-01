@@ -9,9 +9,9 @@ read the "Pick up here" section first, then the rest fills in the details.
 ## ⭐ Pick up here (current state & next actions)
 
 **What this repo is:** a personal browser **start page** — a minimalist dashboard
-with live widgets (weather, markets/portfolio, news, calendar, Formula 1, clock).
-Zero build step: plain HTML/CSS/JS, no framework, no dependencies.
-Open `index.html` and it runs.
+with live widgets (weather, markets/portfolio, a 3-card calendar, Formula 1, clock;
+news exists but is currently disabled). Zero build step: plain HTML/CSS/JS, no
+framework, no dependencies. Open `index.html` and it runs.
 
 **Status:** ✅ **Live in production, owner-only.** Hosted on **Cloudflare
 Workers (static assets)** at **https://home.adam-berczi.workers.dev/**, gated
@@ -20,10 +20,13 @@ one-time-PIN login required before the page loads). The old public GitHub
 Pages copy (`https://adamberczi.github.io/AdamRepo/`) is being turned off.
 Current look: a dynamic time-of-day + weather **scene** background with
 **glassmorphic** widgets, hero clock, serif-italic greeting. Features include
-weather, a markets watchlist that becomes a **portfolio** tracker (value + day
-change + gain/loss), breaking news, a multi-feed calendar (incl. live
-pogdesign TV), and a Formula 1 card (next race, qualifying countdown,
-standings tabs). The owner reviews changes on the live site and iterates.
+weather (geolocation-based, falls back to the Budapest preset), a markets
+watchlist that becomes a **portfolio** tracker (value + day change +
+gain/loss), a multi-feed calendar (incl. live pogdesign TV) split across
+**three cards — Today / Tomorrow / This week**, and a Formula 1 card (next
+race, qualifying countdown, standings tabs). News is built but **disabled**
+(`news.enabled: false` in `config.js`) — flip it back on to bring it back.
+The owner reviews changes on the live site and iterates.
 
 **Workflow:** develop on a feature branch → merge to `master` → push.
 Cloudflare auto-deploys the Worker in ~1 min (hard-refresh `Ctrl+Shift+R` to
@@ -31,7 +34,8 @@ dodge CSS/JS caching). Since the site now requires an Access login, the owner
 verifies changes after signing in with the OTP email.
 
 **Owner-only actions left** (the page works without these — Weather + F1
-need nothing; News, Markets, Calendar use the proxy):
+need nothing; Markets and Calendar use the proxy, and News would too if
+re-enabled):
 
 1. **Deploy the CORS proxy Worker.** On the owner's machine:
    ```bash
@@ -47,9 +51,10 @@ need nothing; News, Markets, Calendar use the proxy):
    in `config.js`.)*
 
 **Per-device setup the owner does in the browser (secrets never committed):**
-- **Calendar:** click "＋ Connect calendar" → paste secret iCal URLs, one per
-  line (Google + pogdesign TV supported; stored in
-  `localStorage["dash-calendar-urls"]`).
+- **Calendar:** click "＋ Connect calendar" (on the **Today** card) → paste
+  secret iCal URLs, one per line (Google + pogdesign TV supported; stored in
+  `localStorage["dash-calendar-urls"]`). One shared connection feeds all
+  three calendar cards.
 - **Portfolio:** click "＋ holdings" in the Markets card → paste
   `SYMBOL SHARES [AVG_COST]` lines (stored in `localStorage["dash-portfolio"]`).
   `config.js` ships with an empty committed portfolio on purpose (public repo)
@@ -148,8 +153,18 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
   double-width (`.card--f1` span 4) with a two-column `.f1-grid`. (F1 *Fantasy*
   has no free public API — official needs login, the community scrape is stale;
   only paid APIs cover fantasy prices/points.)
+- **Calendar (.ics) — three cards.** `loadCalendar()` fetches every connected
+  feed once, merges + sorts the events (same as before), then buckets them by
+  local day boundary into **Today** / **Tomorrow** / **This week** (the 5 days
+  after tomorrow) and renders each bucket into its own card via the shared
+  `renderEvents()` helper. `calendar.maxItems` caps events *per card*, not
+  globally. The "＋ Connect calendar" / "edit" control only lives on the
+  Today card (one shared URL list feeds all three); the other two only show
+  a subtitle (date / date range) and their own empty-state message.
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
+  (News is currently disabled — see Status above — but the code/proxy path
+  is untouched so re-enabling is a one-line `config.js` flip.)
 
 ### The CORS proxy (`/proxy`)
 
@@ -192,8 +207,9 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
     commit it) is added to the displayed total but excluded from gain/loss.
   With avg cost it computes total gain/loss; without it, just value + day change.
   Mixed currencies are summed per-currency. Uses the Yahoo quote feed (via proxy).
-- **Add a news feed:** add `{ name, url }` to `news.feeds`, **then add the feed's
-  hostname to `ALLOWED_HOSTS` and redeploy the proxy.** News is set to
+- **News (currently disabled, `news.enabled: false`):** add `{ name, url }` to
+  `news.feeds`, **then add the feed's hostname to `ALLOWED_HOSTS` and redeploy
+  the proxy.** Set `enabled: true` to bring the card back. News is set to
   English breaking/important top-story feeds (BBC, Al Jazeera, NPR); titles
   containing "breaking" are floated to the top and get a Breaking badge.
 - **Connect calendars (multi-feed):** events from all feeds are merged, sorted,

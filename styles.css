@@ -184,7 +184,7 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 .card--weather  { grid-column: span 2; }
 .card--stocks   { grid-column: span 2; }
 .card--news     { grid-column: span 2; }
-.card--calendar { grid-column: span 2; }
+.card--cal      { grid-column: span 2; }
 .card--f1       { grid-column: span 4; }
 
 .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -275,13 +275,13 @@ body[data-sky="night"]  .scene__sun { opacity: 0; }
 /* ---- Responsive ----------------------------------------------------------*/
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  .card--weather, .card--stocks, .card--calendar { grid-column: span 1; }
+  .card--weather, .card--stocks, .card--cal { grid-column: span 1; }
   .card--news, .card--f1 { grid-column: span 2; grid-row: auto; }
   .f1-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
   .grid { grid-template-columns: 1fr; }
-  .card, .card--weather, .card--stocks, .card--news, .card--calendar, .card--f1 { grid-column: span 1; grid-row: auto; }
+  .card { grid-column: span 1; grid-row: auto; }
   .f1-grid { grid-template-columns: 1fr; }
   .tb-greeting, .tb-date { display: none; }
 }
