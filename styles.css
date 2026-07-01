@@ -331,11 +331,12 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
 .evt:last-child { border-bottom: none; }
 .evt:hover { background: var(--accent-soft); }
 .evt__date { text-align: center; min-width: 36px; }
-.evt__date b { display: block; font-size: 17px; font-weight: 600; line-height: 1; color: var(--accent); }
+/* --cal-c is the per-calendar colour picked in the manager */
+.evt__date b { display: block; font-size: 17px; font-weight: 600; line-height: 1; color: var(--cal-c, var(--accent)); }
 .evt__date span { font-size: 9px; color: var(--text-faint); text-transform: lowercase; }
 .evt__body { font-size: 12px; line-height: 1.45; }
 .evt__time { color: var(--text-faint); font-size: 10px; }
-.evt__src { color: var(--accent); }
+.evt__src { color: var(--cal-c, var(--accent)); }
 
 /* ---- Calendar connect modal ------------------------------------------------*/
 .modal-overlay {
@@ -351,23 +352,41 @@ body[data-sky="night"]  .scene__clouds { opacity: .5; }
   border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 20px 22px;
 }
+.modal--manager { width: 560px; }
 .modal h3 { font-size: 13px; font-weight: 600; letter-spacing: .04em; margin-bottom: 8px; }
-.modal__hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 10px; }
-.modal__tips { font-size: 11px; color: var(--text-faint); line-height: 1.6; margin: 0 0 12px 16px; }
-.modal textarea#calModalInput {
-  width: 100%; resize: vertical; min-height: 110px;
-  background: var(--panel);
-  border: 1px solid var(--panel-border); border-radius: 8px;
-  color: var(--text); font-family: var(--font); font-size: 12px; line-height: 1.6;
-  padding: 10px 11px; outline: none;
-}
-.modal textarea#calModalInput:focus { border-color: var(--panel-hover); }
+.modal__hint { font-size: 11px; color: var(--text-dim); line-height: 1.55; margin-bottom: 12px; }
 .modal__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
 .modal__err { font-size: 11px; color: var(--down); }
 .modal__actions { display: flex; gap: 8px; }
 .modal__save { border-color: var(--accent); color: var(--accent); }
 .modal__save:hover { background: var(--accent); color: #17141a; }
 .modal__note { font-size: 10px; color: var(--text-faint); margin-top: 10px; }
+
+/* manager rows: [colour] [name] [url] [eye] [remove] */
+.cal-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; max-height: 42vh; overflow-y: auto; }
+.cal-row { display: grid; grid-template-columns: 30px 110px 1fr 28px 28px; gap: 8px; align-items: center; }
+.cal-row input[type="text"] {
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: 7px;
+  color: var(--text); font-family: var(--font); font-size: 11px;
+  padding: 6px 8px; min-width: 0; outline: none;
+}
+.cal-row input[type="text"]:focus { border-color: var(--panel-hover); }
+.cal-row__color {
+  width: 28px; height: 28px; padding: 0; border: 1px solid var(--panel-border);
+  border-radius: 7px; background: none; cursor: pointer;
+}
+.cal-row__color::-webkit-color-swatch-wrapper { padding: 2px; }
+.cal-row__color::-webkit-color-swatch { border: none; border-radius: 5px; }
+.cal-row__eye, .cal-row__del {
+  background: none; border: 1px solid transparent; border-radius: 7px;
+  color: var(--text-dim); cursor: pointer; font: inherit; font-size: 12px; height: 28px;
+  transition: border-color .15s, color .15s, opacity .15s;
+}
+.cal-row__eye:hover, .cal-row__del:hover { border-color: var(--panel-border); color: var(--text); }
+.cal-row__del:hover { color: var(--down); }
+.cal-row.is-hidden .cal-row__eye { opacity: .3; }
+.cal-row.is-hidden input[type="text"] { opacity: .38; }
+#calAddRow { align-self: flex-start; }
 
 /* ---- Responsive --------------------------------------------------------------*/
 @media (max-width: 900px) {

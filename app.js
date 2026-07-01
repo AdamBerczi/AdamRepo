@@ -14,10 +14,10 @@
 
   // All widget fetches go through this: a hung upstream aborts after 12s so a
   // dead data source shows its fail message instead of stalling the card forever.
-  async function fetchT(url, ms = 12000) {
+  async function fetchT(url, opts = {}, ms = 12000) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), ms);
-    try { return await fetch(url, { mode: "cors", signal: ctl.signal }); }
+    try { return await fetch(url, { mode: "cors", ...opts, signal: ctl.signal }); }
     finally { clearTimeout(t); }
   }
   async function getJSON(url, { useProxy = false } = {}) {
@@ -725,32 +725,82 @@
   // live only in this browser's localStorage — never committed. Multiple feeds
   // are supported (e.g. a Google calendar + a pogdesign TV calendar); events
   // from all of them are merged, sorted, and tagged with a short source label.
-  const CAL_KEY = "dash-calendar-urls";
-  // Private URLs only (localStorage) — this is what the connect modal edits.
-  // Any number of feeds is supported (multiple Google calendars, TV, etc.);
-  // they're just lines in the textarea, merged like every other feed.
-  function getPrivateCalUrls() {
-    const out = [];
-    try { const a = JSON.parse(localStorage.getItem(CAL_KEY)); if (Array.isArray(a)) out.push(...a); } catch {}
-    const legacy = localStorage.getItem("dash-calendar-url"); if (legacy) out.push(legacy); // migrate old single key
-    return [...new Set(out.filter(Boolean))];
-  }
-  // Private + committed (config.js) feeds — this is what actually gets fetched.
-  function getCalUrls() {
-    const cfg = CFG.calendar || {};
-    const out = getPrivateCalUrls();
-    if (cfg.url) out.push(cfg.url);
-    (cfg.feeds || []).forEach((f) => out.push(typeof f === "string" ? f : f && f.url));
-    return [...new Set(out.filter(Boolean))];
-  }
-  function calSource(u) {
+  /* Calendar store — each calendar is { id, name, url, color, visible }.
+   * Canonical copy lives SERVER-SIDE in Workers KV via same-origin
+   * /api/calendars (see server/worker.js): the hostname is behind Cloudflare
+   * Access, so only the owner can read/write — which is what makes storing
+   * secret Google iCal URLs there safe, and makes the list follow the owner
+   * across browsers/devices. localStorage keeps a cache/fallback so the page
+   * still works when the API is unavailable (local dev, KV not set up yet,
+   * expired Access session). Committed config feeds (e.g. tv-shows.ics) are
+   * only *bootstrap seeds*: imported into the store on first run, then fully
+   * managed (rename/recolor/hide/remove) like any other calendar. */
+  const CAL_STORE_LS = "dash-cals-v2";
+  const CAL_COLORS = ["#e8a09a", "#e2b714", "#9ece8f", "#8fb8ce", "#c9a0dc", "#e8b28a"];
+  let calStore = [];      // in-memory copy, refreshed by loadCalendar()
+  let calServerOk = false; // did the last store read/write reach the server?
+
+  const mkCalId = () => Math.random().toString(36).slice(2, 10);
+  function guessCalName(u) {
     try {
       const url = new URL(u, location.href); // resolves relative paths like "tv-shows.ics"
       const h = url.hostname.replace(/^www\./, "");
       if (h.includes("pogdesign") || /tv/i.test(url.pathname)) return "TV";
-      if (h.includes("google")) return "Cal";
-      return h.includes("github") ? "" : h.split(".")[0];
-    } catch { return ""; }
+      if (h.includes("google")) return "Google";
+      return h.split(".")[0] || "Calendar";
+    } catch { return "Calendar"; }
+  }
+  const mkCal = (url, i) => ({
+    id: mkCalId(), name: guessCalName(url), url,
+    color: CAL_COLORS[i % CAL_COLORS.length], visible: true,
+  });
+
+  // → array (server has data) | null (server reachable, nothing saved yet)
+  //   | undefined (server unreachable / KV not configured)
+  async function fetchServerCals() {
+    try {
+      const r = await fetchT("/api/calendars", { cache: "no-store" });
+      if (!r.ok) return undefined;
+      const d = await r.json();
+      return Array.isArray(d) ? d : null;
+    } catch { return undefined; }
+  }
+
+  async function loadCalStore() {
+    const server = await fetchServerCals();
+    calServerOk = server !== undefined;
+    if (Array.isArray(server)) {
+      try { localStorage.setItem(CAL_STORE_LS, JSON.stringify(server)); } catch {}
+      return server;
+    }
+    // local cache/fallback (also pushed up to a reachable-but-empty server)
+    try {
+      const a = JSON.parse(localStorage.getItem(CAL_STORE_LS));
+      if (Array.isArray(a)) { if (calServerOk) saveCalStore(a); return a; }
+    } catch {}
+    // first run: migrate the old URL-list keys + committed config feeds
+    const urls = [];
+    try { const a = JSON.parse(localStorage.getItem("dash-calendar-urls")); if (Array.isArray(a)) urls.push(...a); } catch {}
+    const legacy = localStorage.getItem("dash-calendar-url"); if (legacy) urls.push(legacy);
+    const cfg = CFG.calendar || {};
+    if (cfg.url) urls.push(cfg.url);
+    (cfg.feeds || []).forEach((f) => urls.push(typeof f === "string" ? f : f && f.url));
+    const cals = [...new Set(urls.filter(Boolean))].map((u, i) => mkCal(u, i));
+    if (cals.length) await saveCalStore(cals);
+    return cals;
+  }
+
+  async function saveCalStore(cals) {
+    try { localStorage.setItem(CAL_STORE_LS, JSON.stringify(cals)); } catch {}
+    try {
+      const r = await fetchT("/api/calendars", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cals),
+      });
+      calServerOk = r.ok;
+    } catch { calServerOk = false; }
+    return calServerOk;
   }
   // Same-origin / relative feeds (e.g. a committed .ics) are fetched directly;
   // cross-origin feeds (Google, pogdesign live) go through the CORS proxy.
@@ -764,8 +814,10 @@
       const d = e.start.date;
       const time = e.start.allDay ? "All day"
         : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-      const src = e.source ? ` · <span class="evt__src">${esc(e.source)}</span>` : "";
-      return `<div class="evt">
+      // per-calendar colour (picked in the manager) tints the date + source tag
+      const cc = e.cal?.color || "";
+      const src = e.cal?.name ? ` · <span class="evt__src">${esc(e.cal.name)}</span>` : "";
+      return `<div class="evt"${cc ? ` style="--cal-c:${esc(cc)}"` : ""}>
         <div class="evt__date"><b>${d.getDate()}</b><span>${d.toLocaleDateString(undefined, { month: "short" })}</span></div>
         <div class="evt__body">${esc(e.summary || "(untitled)")}
           <div class="evt__time">${time}${src}${e.location ? " · " + esc(e.location.slice(0, 24)) : ""}</div></div>
@@ -774,28 +826,32 @@
   }
 
   // Calendar is split into three cards — Today / Tomorrow / This week (the 5
-  // days after tomorrow) — all fed by the same merged, multi-feed event list
-  // (Google + pogdesign TV, etc.), just bucketed by day.
+  // days after tomorrow) — all fed by the same merged, multi-calendar event
+  // list (several Google calendars + TV, etc.), just bucketed by day. Only
+  // calendars with visible !== false are fetched/shown.
   async function loadCalendar() {
     const cfg = CFG.calendar || {};
     const cards = [$("calTodayCard"), $("calTomorrowCard"), $("calWeekCard")];
     const bodies = [$("calTodayBody"), $("calTomorrowBody"), $("calWeekBody")];
     if (!cfg.enabled) { cards.forEach((c) => c.style.display = "none"); return; }
 
-    const urls = getCalUrls();
-    // Private (localStorage) feeds are where secret Google calendar URLs
-    // live; if none are connected yet, say "＋ connect" instead of a bare
-    // "edit" so it's obvious no personal calendar is hooked up on this device.
-    const hasPrivate = getPrivateCalUrls().length > 0;
-    $("calTodaySub").innerHTML = urls.length ? `<a href="#" id="calEdit">${hasPrivate ? "edit" : "＋ connect"}</a>` : "";
-    const e1 = $("calEdit"); if (e1) e1.onclick = (e) => { e.preventDefault(); connectCalendar(); };
+    calStore = await loadCalStore();
+    const active = calStore.filter((c) => c && c.url && c.visible !== false);
+    // "·local" flags that the server store isn't reachable (KV not deployed /
+    // Access session expired) and changes are only saved in this browser.
+    const localNote = calServerOk ? "" :
+      ` <span title="server store unreachable — using this browser's copy">·local</span>`;
+    $("calTodaySub").innerHTML =
+      `<a href="#" id="calEdit">${calStore.length ? "manage" : "＋ connect"}</a>${localNote}`;
+    const e1 = $("calEdit"); if (e1) e1.onclick = (e) => { e.preventDefault(); openCalManager(); };
 
-    if (!urls.length) {
-      bodies[0].innerHTML = `<div class="skeleton">No calendar connected.<br>
-        <button class="ghost-btn ghost-btn--sm" id="calConnect" style="margin-top:10px">＋ Connect calendar</button></div>`;
-      $("calConnect").onclick = connectCalendar;
-      bodies[1].innerHTML = `<div class="skeleton">Connect a calendar (Today card) to see more.</div>`;
-      bodies[2].innerHTML = `<div class="skeleton">Connect a calendar (Today card) to see more.</div>`;
+    if (!active.length) {
+      const why = calStore.length ? "All calendars are hidden." : "No calendar connected.";
+      bodies[0].innerHTML = `<div class="skeleton">${why}<br>
+        <button class="ghost-btn ghost-btn--sm" id="calConnect" style="margin-top:10px">Manage calendars</button></div>`;
+      $("calConnect").onclick = openCalManager;
+      bodies[1].innerHTML = `<div class="skeleton">Nothing to show.</div>`;
+      bodies[2].innerHTML = `<div class="skeleton">Nothing to show.</div>`;
       $("calTomorrowSub").textContent = ""; $("calWeekSub").textContent = "";
       return;
     }
@@ -807,29 +863,27 @@
       $("calTomorrowSub").textContent = tomorrowStart.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
       $("calWeekSub").textContent = `${dayAfterStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })}–${day(6).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
 
-      // Fetch every feed, but keep failures visible instead of swallowing
-      // them: a wrong URL (e.g. an HTML page instead of an .ics feed), a
-      // proxy 403, or a dead host used to render as a silent "No events".
-      const results = await Promise.all(urls.map(async (u) => {
-        const src = calSource(u);
+      // Fetch every visible calendar, but keep failures visible instead of
+      // swallowing them: a wrong URL (an HTML page instead of an .ics feed),
+      // a proxy 403, or a dead host used to render as a silent "No events".
+      const results = await Promise.all(active.map(async (cal) => {
         try {
-          const text = await getText(u, { useProxy: calNeedsProxy(u) });
+          const text = await getText(cal.url, { useProxy: calNeedsProxy(cal.url) });
           if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("response is not an iCal feed (got HTML?)");
-          return { ok: true, events: parseICS(text).map((ev) => ({ ...ev, source: src })) };
+          return { ok: true, events: parseICS(text).map((ev) => ({ ...ev, cal })) };
         } catch (err) {
-          console.warn("[dash] calendar feed failed:", u, err);
-          let host = src; try { host = new URL(u, location.href).hostname; } catch {}
-          return { ok: false, name: src || host };
+          console.warn("[dash] calendar feed failed:", cal.url, err);
+          return { ok: false, name: cal.name || "calendar" };
         }
       }));
       const failedFeeds = results.filter((r) => !r.ok).map((r) => r.name);
       const raw = results.filter((r) => r.ok).flatMap((r) => r.events);
       if (!raw.length && failedFeeds.length) throw new Error("all feeds failed: " + failedFeeds.join(", "));
       if (failedFeeds.length) {
-        // innerHTML += re-parses the subtitle and drops the edit link's click
-        // handler, so rebind it after appending the failure note.
+        // innerHTML += re-parses the subtitle and drops the manage link's
+        // click handler, so rebind it after appending the failure note.
         $("calTodaySub").innerHTML += ` · <span class="err" style="font-size:inherit">⚠ ${esc(failedFeeds.join(", "))} failed</span>`;
-        const e2 = $("calEdit"); if (e2) e2.onclick = (e) => { e.preventDefault(); connectCalendar(); };
+        const e2 = $("calEdit"); if (e2) e2.onclick = (e) => { e.preventDefault(); openCalManager(); };
       }
       // Non-recurring events pass through if upcoming; recurring events (most
       // Google Calendar entries) are expanded into the occurrences that fall
@@ -846,49 +900,90 @@
       const tomorrow = all.filter((e) => e.start.date >= tomorrowStart && e.start.date < dayAfterStart).slice(0, max);
       const week = all.filter((e) => e.start.date >= dayAfterStart && e.start.date < weekEnd).slice(0, max);
 
-      const todayEmpty = hasPrivate ? "No events today."
-        : `No events today. Google Calendar isn't connected on this device — use "＋ connect" above.`;
-      bodies[0].innerHTML = renderEvents(today, todayEmpty);
+      bodies[0].innerHTML = renderEvents(today, "No events today.");
       bodies[1].innerHTML = renderEvents(tomorrow, "No events tomorrow.");
       bodies[2].innerHTML = renderEvents(week, "Nothing else this week.");
     } catch (e) {
-      const msg = `Calendar unavailable — ${esc(e.message || "fetch failed")}. Check the URLs (<a href="#" class="calEdit2">edit</a>) and that the proxy allows the host.`;
+      const msg = `Calendar unavailable — ${esc(e.message || "fetch failed")}. Check the URLs (<a href="#" class="calEdit2">manage</a>) and that the proxy allows the host.`;
       bodies.forEach((b) => fail(b, msg));
-      document.querySelectorAll(".calEdit2").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); connectCalendar(); });
+      document.querySelectorAll(".calEdit2").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); openCalManager(); });
     }
   }
 
-  // Modal for entering one or more private iCal URLs — a real <textarea>
-  // instead of window.prompt(), which is single-line and unreliable for
-  // pasting/typing several calendar URLs (a native prompt() can't hold
-  // multi-line input reliably; e.g. Enter submits the whole dialog). Any
-  // number of feeds is supported: several Google calendars, TV, etc. — every
-  // non-empty line becomes its own feed, merged with the committed ones.
-  function connectCalendar() {
-    const overlay = $("calModalOverlay"), input = $("calModalInput"), err = $("calModalErr");
-    input.value = getPrivateCalUrls().join("\n");
-    err.textContent = "";
-    overlay.classList.add("is-open");
-    input.focus();
+  /* Calendar manager modal — add / edit / show-hide / remove calendars, each
+   * with a colour picker. Edits a working copy (mgrCals); Save persists via
+   * saveCalStore() (server KV + localStorage cache) and re-renders. */
+  let mgrCals = [];
+  function calRowHtml(c) {
+    return `<div class="cal-row${c.visible === false ? " is-hidden" : ""}" data-id="${esc(c.id)}">
+      <input type="color" class="cal-row__color" value="${esc(c.color || "#e8a09a")}" title="colour">
+      <input type="text" class="cal-row__name" value="${esc(c.name || "")}" placeholder="name">
+      <input type="text" class="cal-row__url" value="${esc(c.url || "")}" placeholder="https://… .ics" spellcheck="false">
+      <button class="cal-row__eye" title="${c.visible === false ? "hidden — click to show" : "shown — click to hide"}">👁</button>
+      <button class="cal-row__del" title="remove">✕</button>
+    </div>`;
+  }
+  function renderCalRows() {
+    $("calRows").innerHTML = mgrCals.map(calRowHtml).join("")
+      || `<div class="skeleton">No calendars yet — add one below.</div>`;
+  }
+  function openCalManager() {
+    mgrCals = (calStore || []).map((c) => ({ ...c })); // working copy
+    renderCalRows();
+    $("calModalErr").textContent = "";
+    $("calModalNote").textContent = calServerOk
+      ? "Stored on the server (behind your Access login) — follows you across browsers and devices."
+      : "⚠ Server store unreachable — changes will only be saved in this browser (KV not deployed yet? See CLAUDE.md).";
+    $("calModalOverlay").classList.add("is-open");
   }
   function closeCalModal() { $("calModalOverlay").classList.remove("is-open"); }
-  function saveCalModal() {
-    const input = $("calModalInput"), err = $("calModalErr");
-    const urls = input.value.split("\n").map((l) => l.trim().replace(/^webcal:\/\//i, "https://")).filter(Boolean);
-    const bad = urls.filter((u) => !/^https:\/\//i.test(u));
-    if (bad.length) { err.textContent = `Not a valid https:// URL: "${bad[0].slice(0, 40)}"`; return; }
-    localStorage.setItem(CAL_KEY, JSON.stringify(urls));
-    localStorage.removeItem("dash-calendar-url");
+  async function saveCalManager() {
+    const err = $("calModalErr");
+    const cleaned = [];
+    for (const c of mgrCals) {
+      const url = (c.url || "").trim().replace(/^webcal:\/\//i, "https://");
+      if (!url) continue; // rows without a URL are dropped
+      // https:// URLs or relative paths (e.g. the committed tv-shows.ics)
+      const isRelative = !/^[a-z][a-z0-9+.-]*:/i.test(url) && !/\s/.test(url);
+      if (!/^https:\/\//i.test(url) && !isRelative) {
+        err.textContent = `Invalid URL: "${url.slice(0, 40)}" — must be https:// (or a relative .ics path).`;
+        return;
+      }
+      cleaned.push({ ...c, url, name: (c.name || "").trim() || guessCalName(url) });
+    }
+    await saveCalStore(cleaned);
+    calStore = cleaned;
     closeCalModal();
     loadCalendar();
   }
-  function initCalModal() {
+  function initCalManager() {
     const overlay = $("calModalOverlay");
-    $("calModalSave").addEventListener("click", saveCalModal);
+    $("calModalSave").addEventListener("click", saveCalManager);
     $("calModalCancel").addEventListener("click", closeCalModal);
     overlay.addEventListener("click", (e) => { if (e.target === overlay) closeCalModal(); });
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && overlay.classList.contains("is-open")) closeCalModal();
+    });
+    $("calAddRow").addEventListener("click", () => {
+      mgrCals.push({ id: mkCalId(), name: "", url: "",
+        color: CAL_COLORS[mgrCals.length % CAL_COLORS.length], visible: true });
+      renderCalRows();
+      const rows = document.querySelectorAll("#calRows .cal-row__url");
+      if (rows.length) rows[rows.length - 1].focus();
+    });
+    // one delegated listener each for typing and clicks in the rows
+    $("calRows").addEventListener("input", (e) => {
+      const row = e.target.closest(".cal-row"); if (!row) return;
+      const c = mgrCals.find((x) => x.id === row.dataset.id); if (!c) return;
+      if (e.target.classList.contains("cal-row__color")) c.color = e.target.value;
+      else if (e.target.classList.contains("cal-row__name")) c.name = e.target.value;
+      else if (e.target.classList.contains("cal-row__url")) c.url = e.target.value;
+    });
+    $("calRows").addEventListener("click", (e) => {
+      const row = e.target.closest(".cal-row"); if (!row) return;
+      const c = mgrCals.find((x) => x.id === row.dataset.id); if (!c) return;
+      if (e.target.classList.contains("cal-row__eye")) { c.visible = c.visible === false; renderCalRows(); }
+      else if (e.target.classList.contains("cal-row__del")) { mgrCals = mgrCals.filter((x) => x.id !== c.id); renderCalRows(); }
     });
   }
 
@@ -903,7 +998,7 @@
 
   function init() {
     initTheme();
-    initCalModal();
+    initCalManager();
     tickClock(); setInterval(tickClock, 1000 * 15);
     setInterval(() => applyScene(lastWeatherCode), 10 * 60000); // track time-of-day
     setInterval(updateQualiCountdown, 1000); // live F1 qualifying countdown

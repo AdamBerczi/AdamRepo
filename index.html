@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" />
   <!-- ?v= busts browser/edge caches; bump it whenever css/js/config change -->
-  <link rel="stylesheet" href="styles.css?v=14" />
+  <link rel="stylesheet" href="styles.css?v=15" />
 </head>
 <body>
   <!-- Atmospheric scene: sun, clouds, mountain ridge — driven by app.js -->
@@ -106,21 +106,18 @@
     </div>
   </footer>
 
-  <!-- Calendar connect modal: a real textarea (native prompt() is single-line
-       and unreliable for pasting several calendar URLs at once). -->
+  <!-- Calendar manager modal: add / edit / show-hide / remove calendars,
+       each with a colour picker. Persisted server-side via /api/calendars. -->
   <div class="modal-overlay" id="calModalOverlay">
-    <div class="modal">
-      <h3>Connect calendars</h3>
+    <div class="modal modal--manager">
+      <h3>Calendars</h3>
       <p class="modal__hint">
-        Paste iCal / .ics URLs, one per line. Add as many as you like — e.g.
-        several Google calendars plus a TV calendar — they're all merged.
+        Any number of iCal/.ics feeds — several Google calendars, TV, whatever.
+        Pick a colour, toggle 👁 to show/hide, ✕ to remove.
+        Google URL: Calendar settings → "Integrate calendar" → "Secret address in iCal format".
       </p>
-      <ul class="modal__tips">
-        <li>Google: Calendar settings → your calendar → "Integrate calendar" → "Secret address in iCal format"</li>
-        <li>pogdesign TV: pogdesign.co.uk/cat → pick shows → copy the iCal subscribe URL</li>
-      </ul>
-      <textarea id="calModalInput" rows="6" spellcheck="false"
-        placeholder="https://calendar.google.com/calendar/ical/.../basic.ics&#10;https://calendar.google.com/calendar/ical/.../basic.ics"></textarea>
+      <div class="cal-rows" id="calRows"></div>
+      <button class="ghost-btn ghost-btn--sm" id="calAddRow">＋ add calendar</button>
       <div class="modal__foot">
         <span class="modal__err" id="calModalErr"></span>
         <div class="modal__actions">
@@ -128,11 +125,11 @@
           <button class="ghost-btn ghost-btn--sm modal__save" id="calModalSave">Save</button>
         </div>
       </div>
-      <p class="modal__note">Stored only in this browser — never committed. Save empty to clear all.</p>
+      <p class="modal__note" id="calModalNote"></p>
     </div>
   </div>
 
-  <script src="config.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+  <script src="config.js?v=15"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

@@ -92,27 +92,27 @@ window.DASH_CONFIG = {
   },
 
   // ---- Calendar ------------------------------------------------------------
-  // iCal URLs are SECRET (anyone with one can read that calendar), so they are
-  // NOT stored here. Connect them from the page: click "＋ Connect calendar" in
-  // the Today card and paste one URL per line. Multiple feeds are merged —
-  // e.g. a Google calendar ("Integrate calendar" → "Secret address in iCal
-  // format") plus a pogdesign TV calendar (pogdesign.co.uk/cat → pick shows →
-  // iCal subscribe URL). Saved only in your browser's localStorage.
-  // `url`/`feeds` below are optional non-secret fallbacks — usually left empty.
+  // Calendars are managed ON THE PAGE (click "manage" on the Today card):
+  // add/edit/show-hide/remove any number of feeds, each with its own colour.
+  // The list is stored server-side (Workers KV via /api/calendars, behind the
+  // Cloudflare Access login — safe for secret Google iCal URLs, and it
+  // follows you across browsers), with a localStorage fallback if the server
+  // store is unreachable. `url`/`feeds` below are only BOOTSTRAP SEEDS:
+  // imported into the store on the very first run, then managed on the page
+  // like everything else (removing one there won't resurrect it from here).
   // Shown as three cards — Today / Tomorrow / This week (the 5 days after
-  // tomorrow) — merging all feeds above. `maxItems` caps events per card.
+  // tomorrow). `maxItems` caps events per card.
   calendar: {
     enabled: true,
     maxItems: 7,
     refreshMinutes: 30,
     url: "",
-    // Public/non-secret .ics URLs (strings). Relative paths are served from this
-    // site (no proxy). `tv-shows.ics` is a committed *snapshot* of the
-    // pogdesign TV calendar — NOT live/auto-updating. `/cat/view/<user>` (the
-    // page you'd browse in a browser) turned out to 500 when fetched as a
-    // feed; it's the profile page, not the actual iCal export. Re-export from
-    // pogdesign.co.uk/cat and overwrite tv-shows.ics whenever your tracked
-    // shows change, or find the real "Calendar Feed" export URL to go live again.
+    // Bootstrap seed feeds (see note above — only used on the very first run).
+    // `tv-shows.ics` is a committed *snapshot* of the pogdesign TV calendar,
+    // NOT live/auto-updating: `/cat/view/<user>` (the browsable page) 500s
+    // when fetched as a feed. Re-export from pogdesign.co.uk/cat and
+    // overwrite tv-shows.ics when tracked shows change, or swap in the real
+    // "Calendar Feed" export URL via the on-page manager to go live again.
     feeds: ["tv-shows.ics"],
   },
 

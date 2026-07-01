@@ -1,0 +1,33 @@
+# =============================================================================
+# wrangler.toml — config for the "home" Worker (the site itself)
+# -----------------------------------------------------------------------------
+# This turns the formerly assets-only Worker into worker code + static assets:
+# server/worker.js answers /api/calendars (calendar store, Workers KV) and
+# passes every other request through to the repo's static files.
+#
+# ⚠️ ONE-TIME OWNER STEP to activate the server-side calendar store:
+#   1. From the repo root on your machine:
+#        npx wrangler kv namespace create CALS
+#      It prints an id like: id = "32ac..."
+#   2. Uncomment the [[kv_namespaces]] block below and paste that id in.
+#   3. Push to master (auto-build) or run `npx wrangler deploy` locally.
+#
+# Until then the Worker still deploys fine — /api/calendars just returns 503
+# and the page falls back to per-browser localStorage.
+#
+# (The CORS proxy is a SEPARATE Worker with its own config in proxy/ — this
+# file does not touch it, nor the unrelated gamebook-platform Worker.)
+# =============================================================================
+
+name = "home"
+main = "server/worker.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "."
+binding = "ASSETS"
+
+# Uncomment + fill in after `npx wrangler kv namespace create CALS`:
+# [[kv_namespaces]]
+# binding = "CALS"
+# id = "PASTE_KV_NAMESPACE_ID_HERE"
