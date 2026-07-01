@@ -68,25 +68,56 @@ namespace `CALS` created and bound in `wrangler.toml`
    + colour them. With KV active this is saved server-side once, for all
    browsers.
 
-3. **Activate the Gmail pill (code is built & shipped).** A `✉ n` unread
-   pill + inbox dropdown lives in the top bar (`#gmailCard` in index.html,
-   `loadGmail()` in app.js, refreshed every 5 min), fed by `/api/gmail` in
-   `server/worker.js`, which fetches Gmail's Atom inbox feed
+3. **Activate the Gmail pill (code is built & shipped, deploy in progress).**
+   A `✉ n` unread pill + inbox dropdown lives in the top bar (`#gmailCard` in
+   index.html, `loadGmail()` in app.js, refreshed every 5 min), fed by
+   `/api/gmail` in `server/worker.js`, which fetches Gmail's Atom inbox feed
    (`mail.google.com/mail/feed/atom`) server-side with HTTP Basic auth.
    `GMAIL_USER` is set in `wrangler.toml` `[vars]`; the missing piece is the
    **app password** secret, owner's machine, repo root:
    ```bash
-   npx wrangler secret put GMAIL_APP_PASSWORD   # then npx wrangler deploy
+   git pull   # brings down wrangler.toml with the worker name ("home")
+   npx wrangler secret put GMAIL_APP_PASSWORD --name home
+   npx wrangler deploy
    ```
    (App password requires 2FA: myaccount.google.com → Security → App
-   passwords. Never goes in the repo.) Until the secret exists,
-   `/api/gmail` returns 503 and **the pill hides itself entirely** —
-   nothing looks broken. If Google rejects Atom+app-password on this
-   account (pill shows "✉ ⚠" with a 502), the fallback plan is the Gmail
-   API with OAuth (Google Cloud project + refresh token as a secret) —
-   more setup, more durable.
+   passwords. Never goes in the repo.) ⚠️ First attempt hit "Required Worker
+   name missing" — that's what running from a stale pre-`wrangler.toml`
+   clone, or from the wrong directory, looks like; `git pull` from
+   `C:\Users\adamb\adamrepo` + the explicit `--name home` above should fix
+   it. **Not yet confirmed working** — pick this up next session. Until the
+   secret exists, `/api/gmail` returns 503 and **the pill hides itself
+   entirely** — nothing looks broken. If Google rejects Atom+app-password on
+   this account (pill shows "✉ ⚠" with a 502), the fallback plan is the
+   Gmail API with OAuth (Google Cloud project + refresh token as a secret)
+   — more setup, more durable.
 
-4. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
+4. **Planned next: To-Do integration (not yet built).** Same architecture
+   as the calendar store — server-side, owner-only via Access, no external
+   OAuth needed for v1:
+   - **Storage:** reuse the existing `CALS` KV namespace (already bound; no
+     new `wrangler kv namespace create` step) under a different key,
+     `"todos"`. New route pair in `server/worker.js`:
+     `GET/PUT /api/todos` ↔ `env.CALS.get/put("todos", ...)`, mirroring
+     `/api/calendars`'s validate → 400/503/200 pattern exactly.
+   - **Data model:** array of `{ id, text, done, due? }` — `due` optional
+     (ISO date) so items can later sort/highlight by date without forcing
+     one on every item.
+   - **UI:** a **bar module** (like Gmail/Weather/Markets), not a grid
+     card — keeps the "compact desktop, not a webpage" feel and needs no
+     grid-math rework. Pill shows an open-item count (`✓ 3` or similar);
+     dropdown has a quick-add text input + a checkable list (checkbox
+     toggles `done`, an ✕ removes, matches the calendar manager's
+     row-editing interaction pattern). Persisted the same way as
+     calendars: server write-through with a localStorage cache/fallback
+     (`calServerOk`-style reachability flag) so it still works if the API
+     is briefly unreachable.
+   - **Where to add the bar-module HTML:** next to `#gmailCard` in
+     `index.html`, using the same `.bar-module`/`.dropdown` CSS already
+     defined in `styles.css` — no new component styling needed, just new
+     content inside.
+
+5. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
    cause: `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is the profile
    *page*, not a feed — pogdesign itself returns HTTP 500 when it's fetched
    like one. Fixed for now by committing a **static snapshot**,
@@ -122,11 +153,13 @@ namespace `CALS` created and bound in `wrangler.toml`
   (Budapest). Set `location.autoDetect: false` to always use the preset and
   skip the prompt entirely.
 
-**Most likely next requests:** design tweaks from live feedback (panel
-opacity/border strength, scene glow, type scale, layout), add/remove widgets,
-add stocks/feeds/teams. Most content changes = edit `config.js` (see "Common
-edits"); design = `styles.css` tokens + `sceneFor` in `app.js` (stay inside
-the charcoal + dusty-rose family — see Styling).
+**Most likely next requests:** finishing the Gmail deploy (owner action 3
+above), building the **To-Do bar module** (planned, action 4 above — check
+here first, the design is already decided), design tweaks from live feedback
+(panel opacity/border strength, scene glow, type scale, layout), add/remove
+widgets, add stocks/feeds/teams. Most content changes = edit `config.js`
+(see "Common edits"); design = `styles.css` tokens + `sceneFor` in `app.js`
+(stay inside the charcoal + dusty-rose family — see Styling).
 
 ---
 
