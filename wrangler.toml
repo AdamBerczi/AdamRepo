@@ -5,7 +5,7 @@
 # server/worker.js answers /api/calendars (calendar store, Workers KV) and
 # passes every other request through to the repo's static files.
 #
-# ⚠️ ONE-TIME OWNER STEP to activate the server-side calendar store:
+# One-time KV setup (✅ done — namespace created and bound below):
 #   1. From the repo root on your machine:
 #        npx wrangler kv namespace create CALS
 #      It prints an id like: id = "32ac..."
@@ -27,7 +27,6 @@ compatibility_date = "2025-01-01"
 directory = "."
 binding = "ASSETS"
 
-# Uncomment + fill in after `npx wrangler kv namespace create CALS`:
-# [[kv_namespaces]]
-# binding = "CALS"
-# id = "PASTE_KV_NAMESPACE_ID_HERE"
+[[kv_namespaces]]
+binding = "CALS"
+id = "b1fc9713d92d4855b8371140979c5a05"
