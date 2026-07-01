@@ -68,18 +68,23 @@ namespace `CALS` created and bound in `wrangler.toml`
    + colour them. With KV active this is saved server-side once, for all
    browsers.
 
-3. **Next feature (agreed, not yet built): Gmail in the top bar.** Plan:
-   a `✉ n` unread pill + dropdown (sender/subject of latest messages),
-   served by a new `/api/gmail` route in `server/worker.js` that fetches
-   Gmail's Atom inbox feed (`https://mail.google.com/mail/feed/atom`)
-   server-side with HTTP Basic auth. Credential = a Google **app password**
-   (requires 2FA on the Google account; create at myaccount.google.com →
-   Security → App passwords), stored as a Worker secret via
-   `npx wrangler secret put GMAIL_APP_PASSWORD` — never in the repo. The
-   endpoint is behind Access like everything else. Fallback if Google
-   rejects Atom+app-password on this account: Gmail API with OAuth
-   (Google Cloud project + refresh token as a secret) — more setup,
-   more durable.
+3. **Activate the Gmail pill (code is built & shipped).** A `✉ n` unread
+   pill + inbox dropdown lives in the top bar (`#gmailCard` in index.html,
+   `loadGmail()` in app.js, refreshed every 5 min), fed by `/api/gmail` in
+   `server/worker.js`, which fetches Gmail's Atom inbox feed
+   (`mail.google.com/mail/feed/atom`) server-side with HTTP Basic auth.
+   `GMAIL_USER` is set in `wrangler.toml` `[vars]`; the missing piece is the
+   **app password** secret, owner's machine, repo root:
+   ```bash
+   npx wrangler secret put GMAIL_APP_PASSWORD   # then npx wrangler deploy
+   ```
+   (App password requires 2FA: myaccount.google.com → Security → App
+   passwords. Never goes in the repo.) Until the secret exists,
+   `/api/gmail` returns 503 and **the pill hides itself entirely** —
+   nothing looks broken. If Google rejects Atom+app-password on this
+   account (pill shows "✉ ⚠" with a 502), the fallback plan is the Gmail
+   API with OAuth (Google Cloud project + refresh token as a secret) —
+   more setup, more durable.
 
 4. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
    cause: `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is the profile
