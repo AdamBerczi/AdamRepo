@@ -1,0 +1,9 @@
+# Files that should not be uploaded/served as static assets by the home Worker.
+# (tv-shows.ics MUST stay served — do not add it here.)
+.git
+.assetsignore
+server
+proxy
+wrangler.toml
+CLAUDE.md
+PLAN.md

@@ -60,32 +60,49 @@ re-enabled):
    in `config.js`.)* ✅ Done — deployed with the real-browser User-Agent and
    `news.google.com` allowlisted.
 
-2. **Connect Google Calendar on your browser(s).** Click "＋ connect" on the
-   Today card and paste your Google "Secret address in iCal format" URL —
-   it's per-browser (`localStorage`), so this needs repeating on each
-   device/browser you view the dashboard from.
+2. **Activate the server-side calendar store (Workers KV).** The calendar
+   manager saves to `/api/calendars` on the `home` Worker (see
+   `server/worker.js` + root `wrangler.toml`), but the KV namespace needs a
+   one-time creation on the owner's machine, from the repo root:
+   ```bash
+   npx wrangler kv namespace create CALS   # prints an id
+   # → uncomment [[kv_namespaces]] in wrangler.toml, paste the id, push
+   ```
+   Until then `/api/calendars` returns 503 and the page falls back to
+   per-browser localStorage (the Today card shows a "·local" hint).
+   ⚠️ Root `wrangler.toml` now exists, so pushes to `master` deploy the
+   `home` Worker as code+assets. If an auto-build ever fails, check
+   Cloudflare dashboard → Workers → home → Settings → Build (deploy command
+   should be `npx wrangler deploy`); a local `npx wrangler deploy` from the
+   repo root also works.
 
-3. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
+3. **Connect Google Calendar(s).** Click "manage" on the Today card → "＋ add
+   calendar" → paste each Google "Secret address in iCal format" URL. With
+   KV active this is saved server-side once, for all browsers.
+
+4. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
    cause: `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is the profile
    *page*, not a feed — pogdesign itself returns HTTP 500 when it's fetched
    like one. Fixed for now by committing a **static snapshot**,
    `tv-shows.ics` (repo root — the owner exported it manually from
-   pogdesign.co.uk/cat), referenced via `calendar.feeds: ["tv-shows.ics"]`
-   (relative path → served same-origin, no proxy, so it can't have this
-   class of failure again). ⚠️ This snapshot does **not** auto-update —
-   re-export from pogdesign.co.uk/cat and overwrite `tv-shows.ics` whenever
-   tracked shows change. If the owner finds pogdesign's actual "Calendar
-   Feed" / iCal *export* link (distinct from the profile page — check
-   account/settings on pogdesign.co.uk while signed in), swap
-   `calendar.feeds` back to that URL for a live/auto-updating feed.
+   pogdesign.co.uk/cat), seeded into the calendar store as a relative path
+   (served same-origin, no proxy, so it can't have this class of failure
+   again). ⚠️ This snapshot does **not** auto-update — re-export from
+   pogdesign.co.uk/cat and overwrite `tv-shows.ics` whenever tracked shows
+   change. If the owner finds pogdesign's actual "Calendar Feed" / iCal
+   *export* link (distinct from the profile page — check account/settings on
+   pogdesign.co.uk while signed in), swap the TV calendar's URL to it in the
+   on-page manager for a live/auto-updating feed.
 
 **Per-device setup the owner does in the browser (secrets never committed):**
-- **Calendar:** click "＋ connect" / "edit" (on the **Today** card) → a modal
-  opens with a real `<textarea>` (not `window.prompt()` — that's single-line
-  and unreliable for pasting several URLs). Paste as many secret iCal URLs as
-  needed, **one per line — any number of Google calendars work, plus TV,
-  etc.**, all merged. Stored in `localStorage["dash-calendar-urls"]`. One
-  shared connection feeds all three calendar cards.
+- **Calendar:** click "manage" (on the **Today** card) → the **calendar
+  manager** modal: one row per calendar with a **colour picker, name, URL,
+  show/hide (👁) and remove (✕)**, plus "＋ add calendar". Saved
+  **server-side** (Workers KV via same-origin `/api/calendars`, behind the
+  Access login — safe for secret Google URLs, follows the owner across
+  browsers) with a localStorage cache/fallback when the server store is
+  unreachable (Today card shows "·local"). Any number of Google calendars
+  plus TV etc.; per-calendar colour tints the event date + source tag.
 - **Portfolio:** the owner's real holdings (4008 cash, 40 NVDA, 4 MSFT) are
   **committed in `config.js`** — the owner explicitly chose this for
   convenience despite the public repo. A per-browser override exists via
@@ -116,6 +133,9 @@ the charcoal + dusty-rose family — see Styling).
 | `app.js`             | All widget logic. One self-contained function per widget            |
 | `config.js`          | **User-editable settings only.** No logic — just data               |
 | `tv-shows.ics`       | Static snapshot of the pogdesign TV calendar (see Calendar notes)    |
+| `server/worker.js`   | The `home` Worker: static assets + `/api/calendars` (KV store)       |
+| `wrangler.toml`      | Deploy config for the `home` Worker (site + calendar API)            |
+| `.assetsignore`      | Files excluded from the static-asset upload (server/, proxy/, docs)  |
 | `proxy/worker.js`    | Cloudflare CORS proxy with a host allowlist                         |
 | `proxy/wrangler.toml`| Deploy config for the proxy Worker (`personal-dash-proxy`)          |
 | `PLAN.md`            | Design rationale, layout mockup, data-source table                  |
@@ -262,18 +282,22 @@ the charcoal + dusty-rose family — see Styling).
     weekly) — covers the common Google Calendar patterns, not the full spec
     (no `BYMONTHDAY`/`BYSETPOS`/etc.). Only expands within the display
     window (today → +7 days), so it stays fast even for years-old series.
-  - **Connecting calendars — multiple Google calendars supported.** The
-    connect UI ("＋ connect"/"edit" on Today) is a modal with a real
-    `<textarea>` (`#calModalOverlay`, wired in `initCalModal()`), not
-    `window.prompt()` — a native prompt is single-line and can't reliably
-    hold multi-URL paste/typing (Enter submits the whole dialog). Any number
-    of lines/feeds work: several Google calendars, TV, whatever. The modal
-    edits **only the private (localStorage) list** via `getPrivateCalUrls()`
-    — it used to pre-fill from the full merged list (`getCalUrls()`, which
-    includes committed feeds like `tv-shows.ics`), so saving without
-    manually deleting the committed line would fail the `https://`
-    validation. Fixed by separating "what gets fetched" (`getCalUrls()`,
-    private + committed) from "what the modal edits" (private only).
+  - **The calendar store + manager.** Each calendar is
+    `{ id, name, url, color, visible }`. Canonical copy lives **server-side
+    in Workers KV** via same-origin `GET/PUT /api/calendars`
+    (`server/worker.js` on the `home` Worker — behind Cloudflare Access, so
+    owner-only by construction; that's what makes storing secret Google URLs
+    there safe, and makes the list follow the owner across devices).
+    Client logic: `loadCalStore()` (server → localStorage cache → first-run
+    migration from the old URL-list keys + `config.js` seed feeds) and
+    `saveCalStore()` (writes both; `calServerOk` tracks reachability — when
+    false the Today card shows a "·local" hint). The manager modal
+    (`#calModalOverlay`, `initCalManager()`, `openCalManager()`) lists one
+    row per calendar: colour `<input type="color">`, name, URL, 👁 show/hide
+    (`visible: false` calendars aren't fetched), ✕ remove, ＋ add. Only
+    calendars in the store are fetched — committed `config.js` feeds are
+    one-time bootstrap seeds, not a live source. Per-calendar `color` tints
+    the event date number + source tag via the `--cal-c` CSS var.
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
 
@@ -323,22 +347,15 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
   still be added to `news.feeds` as `{ name, url }` — **those** need their
   hostname in `ALLOWED_HOSTS` + a proxy redeploy. `maxItems` caps the total
   shown (5). Titles containing "breaking" float to the top with a badge.
-- **Connect calendars (multi-feed):** events from all feeds are merged, sorted,
-  and tagged by source. Two ways to add feeds:
-  - *Committed (public):* `calendar.feeds` in `config.js` — array of .ics URL
-    strings. The **pogdesign TV** calendar is here as `"tv-shows.ics"` — a
-    relative path, fetched same-origin with no proxy (`calNeedsProxy` returns
-    false for it). ⚠️ It's a **static snapshot** (repo root, exported
-    manually from pogdesign.co.uk/cat), not a live feed —
-    `/cat/view/<user>` (the profile page) turned out to 500 when fetched as
-    a feed, so re-export and overwrite `tv-shows.ics` whenever tracked shows
-    change, until a real live export URL is found. Cross-origin feeds (e.g.
-    Google, if ever committed) use the proxy (`calNeedsProxy`) and need their
-    host in `ALLOWED_HOSTS`.
-  - *Private (per browser):* secret iCal URLs (e.g. a Google "Secret address in
-    iCal format") go on the page via "＋ Connect calendar", one per line — stored
-    in `localStorage["dash-calendar-urls"]`, never committed. Any new host still
-    needs adding to `ALLOWED_HOSTS` if you later switch off allorigins.
+- **Manage calendars:** everything happens **on the page** — "manage" on the
+  Today card opens the manager (add/edit/show-hide/remove + colour picker
+  per calendar); the list persists server-side (KV) once the namespace is
+  set up. `config.js → calendar.feeds` is only a first-run bootstrap seed.
+  The TV calendar is the committed `tv-shows.ics` snapshot (same-origin, no
+  proxy — see the pogdesign note in "Pick up here"). ⚠️ Cross-origin feeds
+  (Google etc.) go through the proxy, so any new *host* still needs adding
+  to `ALLOWED_HOSTS` in `proxy/worker.js` + a proxy redeploy
+  (calendar.google.com is already allowlisted).
 - **Change home-base location:** edit `location` (lat/lon from latlong.net,
   IANA `timezone`, `units: "metric" | "imperial"`). This is the clock/greeting
   timezone and the weather fallback. `location.autoDetect` (default `true`)
@@ -361,14 +378,16 @@ merging (see Workflow).
 ## Deployment
 
 The site is served by the Cloudflare Worker `home` at
-**https://home.adam-berczi.workers.dev/** (repo root as static assets, no
-build step), auto-deploying on push to `master`. **Cloudflare Access** sits in
-front of it, restricted to `adam.berczi@gmail.com` — every visitor gets an
-email one-time-PIN challenge before the page loads; nobody else can pass.
-GitHub Pages (`https://adamberczi.github.io/AdamRepo/`) formerly served the
-same public copy from `master` and is being turned off (repo Settings →
-Pages → Source: None), so no unauthenticated copy stays live. The CORS proxy
-(`personal-dash-proxy`) is a separate Worker, deployed independently via
-wrangler (above). No code changes were needed for the migration — `index.html`
-only uses relative asset paths, so it serves identically from repo root under
-either host.
+**https://home.adam-berczi.workers.dev/**, auto-deploying on push to
+`master`. Since the calendar store landed, `home` is **worker code + static
+assets**: root `wrangler.toml` points at `server/worker.js` (which answers
+`/api/calendars` from Workers KV and passes everything else to the assets),
+with the repo root as the asset directory (`.assetsignore` excludes
+server/proxy/docs files). Still zero build step. **Cloudflare Access** sits
+in front of the hostname, restricted to `adam.berczi@gmail.com` — every
+visitor gets an email one-time-PIN challenge before anything (pages *and*
+API) is reachable; nobody else can pass. GitHub Pages
+(`https://adamberczi.github.io/AdamRepo/`) formerly served a public copy
+and is being turned off (repo Settings → Pages → Source: None). The CORS
+proxy (`personal-dash-proxy`) is a separate Worker, deployed independently
+via wrangler from `proxy/`.
