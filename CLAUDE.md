@@ -25,7 +25,7 @@ standings tabs). The owner reviews changes on the live site and iterates.
 **Workflow:** develop on a feature branch → merge to `master` → push. Pages
 auto-deploys in ~1 min (hard-refresh `Ctrl+Shift+R` to dodge CSS/JS caching).
 
-**One owner-only action left** (the page works without it — Weather + F1
+**Owner-only actions left** (the page works without these — Weather + F1
 need nothing; News, Markets, Calendar use the proxy):
 
 1. **Deploy the CORS proxy Worker.** On the owner's machine:
@@ -39,6 +39,31 @@ need nothing; News, Markets, Calendar use the proxy):
    already points at. Does **not** touch the existing `gamebook-platform`
    Worker. *(No-deploy alternative: uncomment the `api.allorigins.win` fallback
    line in `config.js`.)*
+
+2. **Lock the site down to the owner only, via Cloudflare Access.** The
+   GitHub Pages site is currently public (anyone with the URL can view it —
+   there's no server to gate access, and any client-side password would be
+   readable straight out of the public repo). Decided approach: move hosting
+   to **Cloudflare Pages** (same static files, no build step) and put
+   **Cloudflare Access** in front of it, restricted to `adam.berczi@gmail.com`
+   only. This requires the Cloudflare dashboard (login + a couple of clicks
+   Claude can't do from here) — one-time setup:
+   1. **Workers & Pages → Create → Pages → Connect to Git** → select
+      `adamberczi/adamrepo` → build settings: no build command, output
+      directory `/` (repo root, since there's no build step) → Save and
+      Deploy. Gives a `*.pages.dev` URL and auto-deploys on every push to
+      `master`, same as Pages does today.
+   2. **Zero Trust dashboard → set up a team domain** (one-time, free tier —
+      50 seats). Then **Access → Applications → Add an application →
+      Self-hosted** → application domain = the `*.pages.dev` URL from step 1
+      → **policy**: Allow, Include → Emails → `adam.berczi@gmail.com` only.
+      Visitors now get a Cloudflare one-time-PIN email login before seeing
+      anything; only that address can pass.
+   3. **Turn off GitHub Pages** (repo Settings → Pages → set Source to
+      "None") once the Cloudflare Pages + Access URL is confirmed working, so
+      the old public unauthenticated copy stops serving.
+   4. Update the **Status** line below and the **Deployment** section with
+      the new `*.pages.dev` URL once live.
 
 **Per-device setup the owner does in the browser (secrets never committed):**
 - **Calendar:** click "＋ Connect calendar" → paste secret iCal URLs, one per
@@ -195,5 +220,16 @@ toggle works; layout holds at mobile width.
 
 ## Deployment
 
-GitHub Pages serves the repo root on `master`. Merge a feature branch to
-`master` to publish. The proxy is deployed separately via wrangler (above).
+Currently: GitHub Pages serves the repo root on `master` (public, no auth).
+Merge a feature branch to `master` to publish. The proxy is deployed
+separately via wrangler (above).
+
+**In progress:** migrating hosting to **Cloudflare Pages** with **Cloudflare
+Access** gating it to `adam.berczi@gmail.com` only — see the owner-only
+action above. Once cut over: push to `master` → Cloudflare Pages
+auto-deploys the `*.pages.dev` URL → Access challenges every visitor with an
+email OTP and only lets the owner's address through. GitHub Pages gets
+turned off at that point so there's no unauthenticated copy left live. No
+code changes are needed for the migration itself — `index.html` only uses
+relative asset paths, so it serves the same from repo root under either
+host.
