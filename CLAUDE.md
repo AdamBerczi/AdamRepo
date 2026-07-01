@@ -29,9 +29,13 @@ race, qualifying countdown, standings tabs). News is built but **disabled**
 The owner reviews changes on the live site and iterates.
 
 **Workflow:** develop on a feature branch → merge to `master` → push.
-Cloudflare auto-deploys the Worker in ~1 min (hard-refresh `Ctrl+Shift+R` to
-dodge CSS/JS caching). Since the site now requires an Access login, the owner
-verifies changes after signing in with the OTP email.
+Cloudflare auto-deploys the Worker in ~1 min. ⚠️ **Whenever `app.js`,
+`config.js`, or `styles.css` change, bump the `?v=N` query strings on all
+three tags in `index.html`** — that's the cache-buster that guarantees
+browsers/edge caches load the new bundle (stale assets once caused "my fix
+isn't live" reports: old JS + old config kept rendering old bugs). Since the
+site requires an Access login, the owner verifies changes after signing in
+with the OTP email.
 
 **Owner-only actions left** (the page works without these — Weather + F1
 need nothing; Markets and Calendar use the proxy, and News would too if
@@ -137,15 +141,23 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
 ## Data sources (and their quirks)
 
 - **Weather — Open-Meteo.** No key, CORS-friendly, called directly. Reliable.
-  Prefers the browser's own geolocation (`getGeoCoords()`) over the
-  `location` preset in `config.js`; falls back silently on denial/timeout/
-  unsupported browsers (`location.autoDetect: false` disables the prompt
-  entirely). When geolocation succeeds, the card's location label comes from
-  a best-effort reverse-geocode via **BigDataCloud's client-reverse-geocode**
-  endpoint (no key, CORS-enabled, built for client-side use — fails soft to
-  "My location" if it errors). The **clock/greeting always stay on the
-  `location.timezone` preset** regardless of detected weather location —
-  that's your home-base time, not wherever the browser happens to be.
+  **Render-first:** `loadWeather()` paints immediately from the best spot it
+  already knows — the last detected location cached in
+  `localStorage["dash-geo"]`, else the `config.js` preset — and only then asks
+  for live geolocation in the background (`getGeoCoords()`), re-rendering +
+  updating the cache if the position meaningfully moved. It never blocks the
+  first paint on a permission prompt; a previously-denied permission resolves
+  instantly via the Permissions API instead of eating the geolocation timeout.
+  A render sequence counter makes the newest render win (a slow preset fetch
+  can't overwrite a fresher geolocated one), and a failed background
+  re-render never clobbers an already-painted card.
+  (`location.autoDetect: false` disables detection entirely.) When
+  geolocation succeeds, the card's location label comes from a best-effort
+  reverse-geocode via **BigDataCloud's client-reverse-geocode** endpoint (no
+  key, CORS-enabled, built for client-side use — fails soft to "My
+  location"). The **clock/greeting always stay on the `location.timezone`
+  preset** regardless of detected weather location — that's your home-base
+  time, not wherever the browser happens to be.
 - **Formula 1 — Jolpica/Ergast** (`api.jolpi.ca/ergast/f1/...`). No key,
   CORS-enabled, called directly. Shows the next race, a live **countdown to
   qualifying** (1s ticker, `updateQualiCountdown`), and **Drivers/Constructors**
@@ -162,10 +174,18 @@ Most content changes = edit `config.js` (see "Common edits"); design = `styles.c
   row below the full-width F1 card (`.card--cal` span 2 × 3 = 6), so they get
   equal height automatically from the grid's default row-stretch — no
   explicit height CSS needed, just keep them in the same DOM row.
-  `calendar.maxItems` caps events *per card*, not globally. The "＋ Connect
-  calendar" / "edit" control only lives on the Today card (one shared URL
-  list feeds all three); the other two only show a subtitle (date / date
-  range) and their own empty-state message.
+  `calendar.maxItems` caps events *per card*, not globally. The connect/edit
+  control only lives on the Today card (one shared URL list feeds all three);
+  it reads "＋ connect" until private (localStorage) feeds exist, then "edit".
+  The other two cards only show a subtitle (date / date range) and their own
+  empty-state message.
+  - **Feed failures are surfaced, never swallowed.** Each feed's response is
+    validated (`BEGIN:VCALENDAR` must appear — a wrong URL returning an HTML
+    page counts as a failure, not zero events). If *all* feeds fail the cards
+    show an error naming them; if *some* fail, events still render and the
+    Today subtitle gets a "⚠ <feed> failed" note. Failures also
+    `console.warn` with the URL for debugging. Before this, any broken feed
+    rendered as a silent "No events".
   - **Recurring events (RRULE).** `parseICS` now also captures `RRULE` and
     `EXDATE`. Most Google Calendar entries are recurring, and their `DTSTART`
     is just the *first-ever* occurrence (often long past) — without
@@ -254,7 +274,10 @@ No test suite — verify in a browser. `fetch`/CORS behave differently on
 python3 -m http.server 8000   # open http://localhost:8000
 ```
 Check: no console errors; every widget loads or shows its fail message; theme
-toggle works; layout holds at mobile width.
+toggle works; layout holds at mobile width. Widget fetches share a 12s abort
+timeout (`fetchT`), so a dead source shows its fail message rather than a
+card stuck on "Loading…". Remember to bump `?v=` in `index.html` before
+merging (see Workflow).
 
 ## Deployment
 
