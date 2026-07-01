@@ -13,25 +13,27 @@ with live widgets (weather, markets/portfolio, a 3-card calendar, Formula 1,
 custom-topic news, clock). Zero build step: plain HTML/CSS/JS, no framework,
 no dependencies. Open `index.html` and it runs.
 
-**Status:** ✅ **Live in production, owner-only.** Hosted on **Cloudflare
-Workers (static assets)** at **https://home.adam-berczi.workers.dev/**, gated
-by **Cloudflare Access** restricted to `adam.berczi@gmail.com` (email
-one-time-PIN login required before the page loads). The old public GitHub
-Pages copy (`https://adamberczi.github.io/AdamRepo/`) is being turned off.
+**Status:** ✅ **Live in production, owner-only.** Hosted on the Cloudflare
+Worker `home` (**worker code + static assets** — see Deployment) at
+**https://home.adam-berczi.workers.dev/**, gated by **Cloudflare Access**
+restricted to `adam.berczi@gmail.com` (email one-time-PIN login required
+before anything loads, pages and API alike). The old public GitHub Pages
+copy is off.
 Current look: **"dusk rice"** — a moody dusk-mountain scene (charcoal sky,
 dusty-rose cloud glow, near-black ridge silhouettes) behind **flat,
 near-opaque charcoal panels with hairline dusty-rose borders**, monospace
 (JetBrains Mono) UI type, a serif-italic greeting, and a single rose accent
 plus a monkeytype-yellow data accent — modeled on a Windows rice screenshot
 the owner supplied (Windhawk/yasb-style). **No glassmorphism/blur.**
-Features include
-weather (geolocation-based, falls back to the Budapest preset), a markets
-watchlist that becomes a **portfolio** tracker (value + day change +
-gain/loss), a multi-feed calendar (incl. a committed pogdesign TV snapshot)
-split across **three cards — Today / Tomorrow / This week**, and a Formula 1 card (next
-race, qualifying countdown, standings tabs), and **custom-topic news** (top 5,
-via keyless Google News search RSS — topics set in `config.js`).
-The owner reviews changes on the live site and iterates.
+Layout, top to bottom: a slim **status bar** (brand + `adam@home` left;
+**weather pill** and **markets P/L pill** with hover dropdowns, clock, date,
+theme toggle right) → a **hero** (giant mono clock, serif greeting, date) →
+**Today / Tomorrow / This Week** calendar cards → **F1** (next race +
+qualifying countdown + standings tabs) beside **top-5 custom-topic news**
+(keyless Google News search RSS, topics in `config.js`). Calendars are
+managed on-page (add/edit/hide/remove + per-calendar colour) and stored
+**server-side in Workers KV** via `/api/calendars`. The owner reviews
+changes on the live site and iterates.
 
 **Workflow:** develop on a feature branch → merge to `master` → push.
 Cloudflare auto-deploys the Worker in ~1 min. ⚠️ **Whenever `app.js`,
@@ -42,43 +44,42 @@ isn't live" reports: old JS + old config kept rendering old bugs). Since the
 site requires an Access login, the owner verifies changes after signing in
 with the OTP email.
 
-**Owner-only actions left** (the page works without these — Weather + F1
-need nothing; Markets and Calendar use the proxy, and News would too if
-re-enabled):
+**Already done (owner-side):** CORS proxy `personal-dash-proxy` deployed
+(real-browser User-Agent, `news.google.com` allowlisted); repo cloned to
+`C:\Users\adamb\adamrepo` on the owner's Windows machine (wrangler logged
+in there; PowerShell needs `Set-ExecutionPolicy -Scope Process
+-ExecutionPolicy Bypass` in each new window before `npx` works); KV
+namespace `CALS` created and bound in `wrangler.toml`
+(id `b1fc9713d92d4855b8371140979c5a05`).
 
-1. **Deploy the CORS proxy Worker.** On the owner's machine:
-   ```bash
-   cd proxy
-   npx wrangler login      # one-time browser auth to Cloudflare
-   npx wrangler deploy
-   ```
-   Publishes a **separate** Worker `personal-dash-proxy` to
-   `https://personal-dash-proxy.adam-berczi.workers.dev/` — the URL `config.js`
-   already points at. Does **not** touch the existing `gamebook-platform`
-   Worker (or the `home` Worker serving the site itself).
-   *(No-deploy alternative: uncomment the `api.allorigins.win` fallback line
-   in `config.js`.)* ✅ Done — deployed with the real-browser User-Agent and
-   `news.google.com` allowlisted.
+**Owner-only actions left:**
 
-2. **Activate the server-side calendar store (Workers KV).** The calendar
-   manager saves to `/api/calendars` on the `home` Worker (see
-   `server/worker.js` + root `wrangler.toml`), but the KV namespace needs a
-   one-time creation on the owner's machine, from the repo root:
-   ```bash
-   npx wrangler kv namespace create CALS   # prints an id
-   # → uncomment [[kv_namespaces]] in wrangler.toml, paste the id, push
-   ```
-   Until then `/api/calendars` returns 503 and the page falls back to
-   per-browser localStorage (the Today card shows a "·local" hint).
-   ⚠️ Root `wrangler.toml` now exists, so pushes to `master` deploy the
-   `home` Worker as code+assets. If an auto-build ever fails, check
+1. **Verify the calendar-store deploy.** From the repo root on the owner's
+   machine: `git pull && npx wrangler deploy` (first deploy that converts
+   `home` from assets-only to code+assets; confirm if wrangler warns about
+   the git integration). Then on the dashboard: Today card header shows
+   "manage" with **no "·local" tag**, and the manager modal's footer says
+   "Stored on the server…". If an auto-build ever fails after this, check
    Cloudflare dashboard → Workers → home → Settings → Build (deploy command
-   should be `npx wrangler deploy`); a local `npx wrangler deploy` from the
-   repo root also works.
+   should be `npx wrangler deploy`).
 
-3. **Connect Google Calendar(s).** Click "manage" on the Today card → "＋ add
-   calendar" → paste each Google "Secret address in iCal format" URL. With
-   KV active this is saved server-side once, for all browsers.
+2. **Connect Google Calendar(s).** Click "manage" on the Today card → "＋ add
+   calendar" → paste each Google "Secret address in iCal format" URL, name
+   + colour them. With KV active this is saved server-side once, for all
+   browsers.
+
+3. **Next feature (agreed, not yet built): Gmail in the top bar.** Plan:
+   a `✉ n` unread pill + dropdown (sender/subject of latest messages),
+   served by a new `/api/gmail` route in `server/worker.js` that fetches
+   Gmail's Atom inbox feed (`https://mail.google.com/mail/feed/atom`)
+   server-side with HTTP Basic auth. Credential = a Google **app password**
+   (requires 2FA on the Google account; create at myaccount.google.com →
+   Security → App passwords), stored as a Worker secret via
+   `npx wrangler secret put GMAIL_APP_PASSWORD` — never in the repo. The
+   endpoint is behind Access like everything else. Fallback if Google
+   rejects Atom+app-password on this account: Gmail API with OAuth
+   (Google Cloud project + refresh token as a secret) — more setup,
+   more durable.
 
 4. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
    cause: `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is the profile
