@@ -27,8 +27,8 @@ the owner supplied (Windhawk/yasb-style). **No glassmorphism/blur.**
 Features include
 weather (geolocation-based, falls back to the Budapest preset), a markets
 watchlist that becomes a **portfolio** tracker (value + day change +
-gain/loss), a multi-feed calendar (incl. live pogdesign TV) split across
-**three cards — Today / Tomorrow / This week**, and a Formula 1 card (next
+gain/loss), a multi-feed calendar (incl. a committed pogdesign TV snapshot)
+split across **three cards — Today / Tomorrow / This week**, and a Formula 1 card (next
 race, qualifying countdown, standings tabs), and **custom-topic news** (top 5,
 via keyless Google News search RSS — topics set in `config.js`).
 The owner reviews changes on the live site and iterates.
@@ -57,20 +57,27 @@ re-enabled):
    already points at. Does **not** touch the existing `gamebook-platform`
    Worker (or the `home` Worker serving the site itself).
    *(No-deploy alternative: uncomment the `api.allorigins.win` fallback line
-   in `config.js`.)*
-   **Redeploy needed:** the worker's User-Agent was changed to a real-browser
-   string (some feed hosts, e.g. pogdesign, reject bot-looking agents) and
-   `news.google.com` was added to the allowlist (topic news feeds) — run
-   `cd proxy && npx wrangler deploy` again to pick both up. Until then the
-   News card will show its fail message (403 from the proxy).
+   in `config.js`.)* ✅ Done — deployed with the real-browser User-Agent and
+   `news.google.com` allowlisted.
 
-2. **Fix the TV calendar feed URL.** The committed
-   `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is suspected to be a
-   profile *web page*, not an iCal feed (the calendar cards now validate
-   responses and will say "⚠ TV failed" if so). Get the real feed URL from
-   pogdesign.co.uk while signed in (look for the iCal/"Calendar Feed" export
-   link), then replace `calendar.feeds[0]` in `config.js` with it — or paste
-   it on the page via "＋ connect" instead.
+2. **Connect Google Calendar on your browser(s).** Click "＋ connect" on the
+   Today card and paste your Google "Secret address in iCal format" URL —
+   it's per-browser (`localStorage`), so this needs repeating on each
+   device/browser you view the dashboard from.
+
+3. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
+   cause: `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is the profile
+   *page*, not a feed — pogdesign itself returns HTTP 500 when it's fetched
+   like one. Fixed for now by committing a **static snapshot**,
+   `tv-shows.ics` (repo root — the owner exported it manually from
+   pogdesign.co.uk/cat), referenced via `calendar.feeds: ["tv-shows.ics"]`
+   (relative path → served same-origin, no proxy, so it can't have this
+   class of failure again). ⚠️ This snapshot does **not** auto-update —
+   re-export from pogdesign.co.uk/cat and overwrite `tv-shows.ics` whenever
+   tracked shows change. If the owner finds pogdesign's actual "Calendar
+   Feed" / iCal *export* link (distinct from the profile page — check
+   account/settings on pogdesign.co.uk while signed in), swap
+   `calendar.feeds` back to that URL for a live/auto-updating feed.
 
 **Per-device setup the owner does in the browser (secrets never committed):**
 - **Calendar:** click "＋ Connect calendar" (on the **Today** card) → paste
@@ -106,6 +113,7 @@ the charcoal + dusty-rose family — see Styling).
 | `styles.css`         | Design tokens (CSS vars), responsive grid, components, dark/light    |
 | `app.js`             | All widget logic. One self-contained function per widget            |
 | `config.js`          | **User-editable settings only.** No logic — just data               |
+| `tv-shows.ics`       | Static snapshot of the pogdesign TV calendar (see Calendar notes)    |
 | `proxy/worker.js`    | Cloudflare CORS proxy with a host allowlist                         |
 | `proxy/wrangler.toml`| Deploy config for the proxy Worker (`personal-dash-proxy`)          |
 | `PLAN.md`            | Design rationale, layout mockup, data-source table                  |
@@ -306,11 +314,15 @@ No-deploy alternative: uncomment the `api.allorigins.win` line in `config.js`.
 - **Connect calendars (multi-feed):** events from all feeds are merged, sorted,
   and tagged by source. Two ways to add feeds:
   - *Committed (public):* `calendar.feeds` in `config.js` — array of .ics URL
-    strings. The live **pogdesign TV** calendar is here
-    (`https://www.pogdesign.co.uk/cat/view/<user>` is the iCal feed, auto-updating;
-    host allowlisted). Relative paths (e.g. `something.ics` in the repo) are
-    fetched same-origin with no proxy; cross-origin feeds use the proxy
-    (`calNeedsProxy`).
+    strings. The **pogdesign TV** calendar is here as `"tv-shows.ics"` — a
+    relative path, fetched same-origin with no proxy (`calNeedsProxy` returns
+    false for it). ⚠️ It's a **static snapshot** (repo root, exported
+    manually from pogdesign.co.uk/cat), not a live feed —
+    `/cat/view/<user>` (the profile page) turned out to 500 when fetched as
+    a feed, so re-export and overwrite `tv-shows.ics` whenever tracked shows
+    change, until a real live export URL is found. Cross-origin feeds (e.g.
+    Google, if ever committed) use the proxy (`calNeedsProxy`) and need their
+    host in `ALLOWED_HOSTS`.
   - *Private (per browser):* secret iCal URLs (e.g. a Google "Secret address in
     iCal format") go on the page via "＋ Connect calendar", one per line — stored
     in `localStorage["dash-calendar-urls"]`, never committed. Any new host still
