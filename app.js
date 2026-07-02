@@ -787,6 +787,7 @@
         const name = key.split(";")[0];
         if (name === "SUMMARY") cur.summary = icsUnescape(val);
         else if (name === "DTSTART") cur.start = parseICSDate(val, key);
+        else if (name === "DTEND") cur.end = parseICSDate(val, key);
         else if (name === "LOCATION") cur.location = icsUnescape(val);
         else if (name === "RRULE") cur.rrule = val;
         else if (name === "EXDATE") {
@@ -1023,20 +1024,41 @@
         $("calTodaySub").innerHTML += ` · <span class="err" style="font-size:inherit">⚠ ${esc(failedFeeds.join(", "))} failed</span>`;
         const e2 = $("calEdit"); if (e2) e2.onclick = (e) => { e.preventDefault(); openCalManager(); };
       }
-      // Non-recurring events pass through if upcoming; recurring events (most
-      // Google Calendar entries) are expanded into the occurrences that fall
-      // in our display window, since their DTSTART alone is usually stale.
+      // A multi-day all-day event (DTSTART Wed, DTEND-exclusive Mon) is still
+      // "on" every day in between, not just its start day — so events are
+      // kept/bucketed by whether their [start, end) range *overlaps* the
+      // window/bucket, not by comparing DTSTART alone. DTEND is exclusive
+      // (RFC 5545); a bare all-day event with no DTEND implies a 1-day span.
+      const eventEnd = (ev) => ev.end ? ev.end.date
+        : ev.start.allDay ? new Date(ev.start.date.getFullYear(), ev.start.date.getMonth(), ev.start.date.getDate() + 1)
+        : ev.start.date;
+      const overlaps = (e, rangeStart, rangeEnd) => e.start.date < rangeEnd && e.end.date > rangeStart;
+
+      // Non-recurring events pass through if still ongoing or upcoming;
+      // recurring events (most Google Calendar entries) are expanded into
+      // the occurrences that fall in our display window, since their
+      // DTSTART alone is usually stale. Each occurrence keeps the series'
+      // original duration.
       const all = raw.flatMap((ev) => {
         if (!ev.start) return [];
-        if (!ev.rrule) return ev.start.date >= todayStart ? [ev] : [];
-        return expandRecurrence(ev.start.date, ev.rrule, ev.exdates, todayStart, weekEnd)
-          .map((date) => ({ ...ev, start: { date, allDay: ev.start.allDay } }));
+        const dur = eventEnd(ev) - ev.start.date;
+        if (!ev.rrule) {
+          const end = new Date(ev.start.date.getTime() + dur);
+          return (end > todayStart && ev.start.date < weekEnd) ? [{ ...ev, end: { date: end } }] : [];
+        }
+        // Widen the search start by the event's own duration so a recurring
+        // multi-day occurrence that began just before the window, but is
+        // still ongoing, isn't missed by expandRecurrence's start-date test.
+        const searchStart = new Date(todayStart.getTime() - Math.max(dur, 0));
+        return expandRecurrence(ev.start.date, ev.rrule, ev.exdates, searchStart, weekEnd)
+          .map((date) => ({ ...ev, start: { date, allDay: ev.start.allDay }, end: { date: new Date(date.getTime() + dur) } }))
+          .filter((e) => e.end.date > todayStart);
       }).sort((a, b) => a.start.date - b.start.date);
 
       const max = cfg.maxItems || 6;
-      const today = all.filter((e) => e.start.date < tomorrowStart).slice(0, max);
-      const tomorrow = all.filter((e) => e.start.date >= tomorrowStart && e.start.date < dayAfterStart).slice(0, max);
-      const week = all.filter((e) => e.start.date >= dayAfterStart && e.start.date < weekEnd).slice(0, max);
+      const today = all.filter((e) => overlaps(e, todayStart, tomorrowStart)).slice(0, max);
+      const tomorrow = all.filter((e) => overlaps(e, tomorrowStart, dayAfterStart)).slice(0, max);
+      const week = all.filter((e) => overlaps(e, dayAfterStart, weekEnd)).slice(0, max);
 
       bodies[0].innerHTML = renderEvents(today, "No events today.");
       bodies[1].innerHTML = renderEvents(tomorrow, "No events tomorrow.");
