@@ -3,6 +3,7 @@
 .git
 .assetsignore
 .claude
+.wrangler
 server
 proxy
 wrangler.toml
