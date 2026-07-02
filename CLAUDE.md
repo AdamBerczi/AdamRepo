@@ -47,10 +47,16 @@ with the OTP email.
 **Already done (owner-side):** CORS proxy `personal-dash-proxy` deployed
 (real-browser User-Agent, `news.google.com` allowlisted); repo cloned to
 `C:\Users\adamb\adamrepo` on the owner's Windows machine (wrangler logged
-in there; PowerShell needs `Set-ExecutionPolicy -Scope Process
--ExecutionPolicy Bypass` in each new window before `npx` works); KV
-namespace `CALS` created and bound in `wrangler.toml`
-(id `b1fc9713d92d4855b8371140979c5a05`).
+in there); KV namespace `CALS` created and bound in `wrangler.toml`
+(id `b1fc9713d92d4855b8371140979c5a05`). PowerShell execution policy is now
+**permanently** `RemoteSigned` for the owner's user account
+(`Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`,
+already run) — no more per-window `-Scope Process` workaround needed.
+**Claude Code CLI is installed** on the machine (`npm install -g
+@anthropic-ai/claude-code`) — the owner can now run `claude` directly from
+`C:\Users\adamb\adamrepo` for a session with real local terminal/wrangler
+access (this file is written to be picked up cold by exactly that kind of
+session, cloud or local).
 
 **Owner-only actions left:**
 
@@ -76,17 +82,27 @@ namespace `CALS` created and bound in `wrangler.toml`
    `GMAIL_USER` is set in `wrangler.toml` `[vars]`; the missing piece is the
    **app password** secret, owner's machine, repo root:
    ```bash
-   git pull   # brings down wrangler.toml with the worker name ("home")
+   git pull                # brings down wrangler.toml with the worker name ("home")
+   npx wrangler deploy     # MUST run before secret put — see below
    npx wrangler secret put GMAIL_APP_PASSWORD --name home
-   npx wrangler deploy
    ```
    (App password requires 2FA: myaccount.google.com → Security → App
-   passwords. Never goes in the repo.) ⚠️ First attempt hit "Required Worker
-   name missing" — that's what running from a stale pre-`wrangler.toml`
-   clone, or from the wrong directory, looks like; `git pull` from
-   `C:\Users\adamb\adamrepo` + the explicit `--name home` above should fix
-   it. **Not yet confirmed working** — pick this up next session. Until the
-   secret exists, `/api/gmail` returns 503 and **the pill hides itself
+   passwords. Never goes in the repo.)
+   ⚠️ Troubleshooting history — two errors hit so far, both explained/fixed:
+   1. *"Required Worker name missing"* — running from a stale pre-
+      `wrangler.toml` clone or the wrong directory. Fix: `git pull` from
+      `C:\Users\adamb\adamrepo`, plus the explicit `--name home` above.
+   2. *"Secret edit failed... you attempted to modify a secret, but the
+      latest version of your Worker isn't currently deployed"* — `secret
+      put` needs an already-**deployed** version to attach to, and this is
+      the first deploy of the new server code, so none existed yet.
+      Fix: run `npx wrangler deploy` **first** (safe without the secret —
+      the code checks for it at runtime and just returns 503/hides the
+      pill if missing), *then* `secret put`. Order matters: deploy → secret,
+      not secret → deploy.
+   **Not yet confirmed working end-to-end** — pick this up next session
+   (or via a local Claude Code session, see "Already done" above). Until
+   the secret exists, `/api/gmail` returns 503 and **the pill hides itself
    entirely** — nothing looks broken. If Google rejects Atom+app-password on
    this account (pill shows "✉ ⚠" with a 502), the fallback plan is the
    Gmail API with OAuth (Google Cloud project + refresh token as a secret)
