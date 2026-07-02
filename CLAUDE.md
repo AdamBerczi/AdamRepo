@@ -74,64 +74,90 @@ session, cloud or local).
    + colour them. With KV active this is saved server-side once, for all
    browsers.
 
-3. **Activate the Gmail pill (code is built & shipped, deploy in progress).**
-   A `✉ n` unread pill + inbox dropdown lives in the top bar (`#gmailCard` in
-   index.html, `loadGmail()` in app.js, refreshed every 5 min), fed by
-   `/api/gmail` in `server/worker.js`, which fetches Gmail's Atom inbox feed
+3. ✅ **Gmail pill — secret set, deployed 2026-07-02.** A `✉ n` unread pill +
+   inbox dropdown lives in the top bar (`#gmailCard` in index.html,
+   `loadGmail()` in app.js, refreshed every 5 min), fed by `/api/gmail` in
+   `server/worker.js`, which fetches Gmail's Atom inbox feed
    (`mail.google.com/mail/feed/atom`) server-side with HTTP Basic auth.
-   `GMAIL_USER` is set in `wrangler.toml` `[vars]`; the missing piece is the
-   **app password** secret, owner's machine, repo root:
-   ```bash
-   git pull                # brings down wrangler.toml with the worker name ("home")
-   npx wrangler deploy     # MUST run before secret put — see below
-   npx wrangler secret put GMAIL_APP_PASSWORD --name home
-   ```
-   (App password requires 2FA: myaccount.google.com → Security → App
-   passwords. Never goes in the repo.)
-   ⚠️ Troubleshooting history — two errors hit so far, both explained/fixed:
-   1. *"Required Worker name missing"* — running from a stale pre-
-      `wrangler.toml` clone or the wrong directory. Fix: `git pull` from
-      `C:\Users\adamb\adamrepo`, plus the explicit `--name home` above.
-   2. *"Secret edit failed... you attempted to modify a secret, but the
-      latest version of your Worker isn't currently deployed"* — `secret
-      put` needs an already-**deployed** version to attach to, and this is
-      the first deploy of the new server code, so none existed yet.
-      Fix: run `npx wrangler deploy` **first** (safe without the secret —
-      the code checks for it at runtime and just returns 503/hides the
-      pill if missing), *then* `secret put`. Order matters: deploy → secret,
-      not secret → deploy.
-   **Not yet confirmed working end-to-end** — pick this up next session
-   (or via a local Claude Code session, see "Already done" above). Until
-   the secret exists, `/api/gmail` returns 503 and **the pill hides itself
-   entirely** — nothing looks broken. If Google rejects Atom+app-password on
-   this account (pill shows "✉ ⚠" with a 502), the fallback plan is the
-   Gmail API with OAuth (Google Cloud project + refresh token as a secret)
-   — more setup, more durable.
+   `GMAIL_USER` is set in `wrangler.toml` `[vars]`; `GMAIL_APP_PASSWORD` is
+   now set as a Worker secret (`wrangler secret list --name home` confirms
+   it) and a secret-change deploy went out right after
+   (`5c7bd8e8-2855-478a-b350-ec06b43af23f`). ⚠️ Troubleshooting history, both
+   fixed: (1) *"Required Worker name missing"* — was a stale pre-
+   `wrangler.toml` clone/wrong directory; fixed with `git pull` +
+   `--name home`. (2) *"Secret edit failed... latest version isn't
+   deployed"* — `secret put` needs an already-deployed version to attach to;
+   fixed by running `npx wrangler deploy` **before** `secret put`, not
+   after. **Still needs an eyeball check on the live site** (sign in, look
+   for the `✉ n` pill) — if it shows `✉ ⚠` (502), Google rejected
+   Atom+app-password for this account and the fallback is the Gmail API
+   with OAuth (Google Cloud project + refresh token as a secret).
 
-4. **Planned next: To-Do integration (not yet built).** Same architecture
-   as the calendar store — server-side, owner-only via Access, no external
-   OAuth needed for v1:
-   - **Storage:** reuse the existing `CALS` KV namespace (already bound; no
-     new `wrangler kv namespace create` step) under a different key,
-     `"todos"`. New route pair in `server/worker.js`:
-     `GET/PUT /api/todos` ↔ `env.CALS.get/put("todos", ...)`, mirroring
-     `/api/calendars`'s validate → 400/503/200 pattern exactly.
-   - **Data model:** array of `{ id, text, done, due? }` — `due` optional
-     (ISO date) so items can later sort/highlight by date without forcing
-     one on every item.
-   - **UI:** a **bar module** (like Gmail/Weather/Markets), not a grid
-     card — keeps the "compact desktop, not a webpage" feel and needs no
-     grid-math rework. Pill shows an open-item count (`✓ 3` or similar);
-     dropdown has a quick-add text input + a checkable list (checkbox
-     toggles `done`, an ✕ removes, matches the calendar manager's
-     row-editing interaction pattern). Persisted the same way as
-     calendars: server write-through with a localStorage cache/fallback
-     (`calServerOk`-style reachability flag) so it still works if the API
-     is briefly unreachable.
-   - **Where to add the bar-module HTML:** next to `#gmailCard` in
-     `index.html`, using the same `.bar-module`/`.dropdown` CSS already
-     defined in `styles.css` — no new component styling needed, just new
-     content inside.
+4. **To-Do integration — built, needs the owner's Azure/Microsoft bootstrap.**
+   ⚠️ This **superseded** the earlier self-hosted-KV plan (no external OAuth)
+   that used to live here — the owner explicitly chose a real **Microsoft To
+   Do** integration instead, via the **Microsoft Graph API**, after weighing
+   it against Apple Reminders (rejected: no official API, only an
+   undocumented iCloud CalDAV workaround).
+   - **Code shipped:** a `✓ n` open-task-count pill + inbox-style dropdown
+     lives in the top bar (`#todoCard` in index.html, `loadTodo()` +
+     `initTodoModule()` in app.js, refreshed every 5 min, same fail-soft
+     503-hides / 502-shows-⚠ contract as Gmail), fed by `GET/POST /api/todos`
+     and `PATCH/DELETE /api/todos/:id` in `server/worker.js`, which call
+     `https://graph.microsoft.com/v1.0/me/todo/...`.
+   - **Auth architecture:** OAuth 2.0 **device-code flow**, public client (no
+     client secret, no redirect URI/callback route to build). Scope
+     `Tasks.ReadWrite offline_access`. Unlike Gmail's static app-password
+     secret, Microsoft **rotates the refresh token on every use**, so it
+     can't live in a Worker secret (immutable at runtime) — it's stored in
+     **Workers KV** instead (`CALS` binding, key `"msTodoRefreshToken"`),
+     which the Worker rewrites after every token-endpoint call. A second KV
+     key, `"msTodoAccessToken"`, caches the short-lived access token (JSON
+     `{ access_token, expires_at }`) so most requests skip the token
+     endpoint entirely — refreshing on *every* request would mean rotating
+     the refresh token on every request too, and two near-simultaneous
+     refreshes can each invalidate the other's rotated token (a real risk
+     with a 5-min poll firing alongside manual clicks). This is a known
+     accepted risk, not fully eliminated — no mutex/lock was built, since a
+     full fix needs a Durable Object and this is a single-owner personal
+     tool where the race window is now small (~once per 60–90 min access
+     token lifetime) rather than constant.
+   - **`MSTODO_CLIENT_ID`** (not secret — public client apps ship it openly)
+     is a `wrangler.toml [vars]` entry, same tier as `GMAIL_USER`.
+   - **`config.js → todo.listName`** (empty by default) targets a specific
+     named Microsoft To Do list instead of the account's default list;
+     carried to the Worker as a `?list=` query param so the server doesn't
+     need its own copy of the setting.
+   - **Owner-only bootstrap, not yet run:**
+     1. **Azure Portal app registration** (interactive — do this yourself,
+        it's your Microsoft sign-in): portal.azure.com → **Microsoft Entra
+        ID** → **App registrations** → **New registration** → any name →
+        supported account types **"Accounts in any organizational directory
+        and personal Microsoft accounts"** → redirect URI: leave blank →
+        Register → copy the **Application (client) ID**. Then
+        **Authentication** → Advanced settings → **Allow public client
+        flows: Yes** → Save. Then **API permissions** → Add a permission →
+        Microsoft Graph → Delegated → `Tasks.ReadWrite` → Add (no admin
+        consent needed for a personal account — you consent interactively
+        during sign-in).
+     2. **Device-code bootstrap** (a Claude session runs this from the
+        terminal; you just sign in in your own browser when prompted — you
+        never paste a secret into chat, unlike the Gmail app password):
+        POST `https://login.microsoftonline.com/common/oauth2/v2.0/devicecode`
+        with the client id + `scope=Tasks.ReadWrite offline_access` → visit
+        the printed `verification_uri` (`https://microsoft.com/devicelogin`)
+        and enter the printed `user_code` → the session polls
+        `.../oauth2/v2.0/token` with
+        `grant_type=urn:ietf:params:oauth:grant-type:device_code` until it
+        returns `access_token`/`refresh_token`.
+     3. Paste the client id into `wrangler.toml [vars] MSTODO_CLIENT_ID`,
+        then from the repo root:
+        ```bash
+        npx wrangler kv key put --binding=CALS msTodoRefreshToken "<refresh_token>"
+        npx wrangler deploy
+        ```
+     Until this runs, `/api/todos` returns 503 and **the pill hides itself
+     entirely** — nothing looks broken, same as Gmail pre-app-password.
 
 5. **(Optional) Find the real live pogdesign feed URL.** Confirmed root
    cause: `https://www.pogdesign.co.uk/cat/view/AdamCorvus` is the profile
@@ -188,8 +214,8 @@ widgets, add stocks/feeds/teams. Most content changes = edit `config.js`
 | `app.js`             | All widget logic. One self-contained function per widget            |
 | `config.js`          | **User-editable settings only.** No logic — just data               |
 | `tv-shows.ics`       | Static snapshot of the pogdesign TV calendar (see Calendar notes)    |
-| `server/worker.js`   | The `home` Worker: static assets + `/api/calendars` (KV store)       |
-| `wrangler.toml`      | Deploy config for the `home` Worker (site + calendar API)            |
+| `server/worker.js`   | The `home` Worker: static assets + `/api/calendars`, `/api/gmail`, `/api/todos` |
+| `wrangler.toml`      | Deploy config for the `home` Worker (site + calendar/Gmail/To-Do APIs) |
 | `.assetsignore`      | Files excluded from the static-asset upload (server/, proxy/, docs)  |
 | `proxy/worker.js`    | Cloudflare CORS proxy with a host allowlist                         |
 | `proxy/wrangler.toml`| Deploy config for the proxy Worker (`personal-dash-proxy`)          |
@@ -353,6 +379,21 @@ widgets, add stocks/feeds/teams. Most content changes = edit `config.js`
     calendars in the store are fetched — committed `config.js` feeds are
     one-time bootstrap seeds, not a live source. Per-calendar `color` tints
     the event date number + source tag via the `--cal-c` CSS var.
+- **To Do — Microsoft Graph, via `/api/todos`.** Same-origin route pair in
+  `server/worker.js`: `GET/POST /api/todos` (list open tasks / create) and
+  `PATCH/DELETE /api/todos/:id` (toggle done / remove), all proxying
+  `https://graph.microsoft.com/v1.0/me/todo/...`. Auth is an OAuth
+  **device-code flow**, bootstrapped once (see "Pick up here" item 4); the
+  refresh token lives in **Workers KV** (`CALS`, key `"msTodoRefreshToken"`)
+  rather than a Worker secret because Microsoft rotates it on every use and
+  the Worker needs to rewrite it — a second KV key,
+  `"msTodoAccessToken"`, caches the short-lived access token so most
+  requests skip the token endpoint (refreshing every request would rotate
+  the refresh token every request, and concurrent refreshes can invalidate
+  each other). `config.js → todo.listName` (empty = account default list)
+  is passed to the Worker as a `?list=` query param. Client: `loadTodo()` +
+  `initTodoModule()` in `app.js`, bar-module pill `#todoCard` next to Gmail's
+  — same fail-soft 503-hides-pill / 502-shows-⚠ contract as Gmail.
 - **News (RSS), Calendar (.ics), Markets (Yahoo Finance)** do **not** send CORS
   headers, so they are routed through `CFG.corsProxy` (the Cloudflare Worker).
 

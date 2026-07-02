@@ -116,6 +116,15 @@ window.DASH_CONFIG = {
     feeds: ["tv-shows.ics"],
   },
 
+  // ---- To Do (Microsoft To Do) ----------------------------------------------
+  // Shows an open-task-count pill in the top bar, backed by Microsoft Graph
+  // (server-side, /api/todos — see CLAUDE.md for the one-time connection
+  // bootstrap). Leave listName empty to use the account's default list
+  // ("Tasks"); set it to target a specific named list instead (e.g. "Groceries").
+  todo: {
+    listName: "",
+  },
+
   // ---- Theme ---------------------------------------------------------------
   // "auto" follows your OS; "dark" / "light" force a mode. Toggle anytime
   // with the button in the header (the choice is remembered).

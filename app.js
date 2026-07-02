@@ -555,6 +555,114 @@
   }
 
   /* ========================================================================
+   * Microsoft To Do — open-task-count pill in the status bar, via the
+   * same-origin /api/todos (server/worker.js talks to Microsoft Graph with a
+   * KV-cached, auto-rotating OAuth token). Stays hidden entirely until the
+   * server side is configured/connected (503), same fail-soft contract as
+   * Gmail. Each add/check/delete is an immediate server write — no local
+   * "save" step, so todoItems is always just a cache of the last server read.
+   * ======================================================================*/
+  let todoItems = [];
+  function todoListParam() {
+    const name = (CFG.todo?.listName || "").trim();
+    return name ? `?list=${encodeURIComponent(name)}` : "";
+  }
+  function todoRowHtml(t) {
+    return `<div class="todo-row${t.done ? " is-done" : ""}" data-id="${esc(t.id)}">
+      <input type="checkbox" class="todo-row__check" ${t.done ? "checked" : ""}>
+      <span class="todo-row__title">${esc(t.title)}</span>
+      ${t.due ? `<span class="todo-row__due">${esc(t.due)}</span>` : ""}
+      <button class="todo-row__del" title="remove">✕</button>
+    </div>`;
+  }
+  function renderTodoRows() {
+    const body = $("todoBody");
+    body.innerHTML = `
+      <div class="todo-add"><input type="text" id="todoAddInput" placeholder="Add a task…" spellcheck="false"></div>
+      <div class="todo-rows">${todoItems.map(todoRowHtml).join("") || `<div class="skeleton">Nothing on your list.</div>`}</div>`;
+  }
+  function setTodoPill() {
+    $("tbTodo").innerHTML = `✓ ${todoItems.length}`;
+    $("todoSub").textContent = todoItems.length === 1 ? "1 open" : `${todoItems.length} open`;
+  }
+  async function loadTodo() {
+    const mod = $("todoCard"), pill = $("tbTodo"), body = $("todoBody");
+    if (!mod) return;
+    try {
+      const r = await fetchT("/api/todos" + todoListParam(), { cache: "no-store" });
+      if (r.status === 503) { mod.style.display = "none"; return; }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      todoItems = d.todos || [];
+      mod.style.display = "";
+      setTodoPill();
+      renderTodoRows();
+    } catch (e) {
+      mod.style.display = "";
+      pill.innerHTML = `✓ <span class="down">⚠</span>`;
+      fail(body, "To Do unavailable — " + esc(e.message || "fetch failed") + ". Check the Microsoft connection (see CLAUDE.md).");
+    }
+  }
+  function initTodoModule() {
+    const bodyEl = $("todoBody");
+    if (!bodyEl) return;
+
+    bodyEl.addEventListener("keydown", async (e) => {
+      if (e.target.id !== "todoAddInput" || e.key !== "Enter") return;
+      const title = e.target.value.trim();
+      if (!title) return;
+      e.target.disabled = true;
+      try {
+        const r = await fetchT("/api/todos" + todoListParam(), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const created = await r.json();
+        todoItems = [created, ...todoItems];
+        setTodoPill();
+        renderTodoRows();
+        $("todoAddInput")?.focus();
+      } catch (err) {
+        fail(bodyEl, "Couldn't add task — " + esc(err.message || "fetch failed"));
+      }
+    });
+
+    bodyEl.addEventListener("click", async (e) => {
+      if (!e.target.classList.contains("todo-row__del")) return;
+      const row = e.target.closest(".todo-row"); if (!row) return;
+      const id = row.dataset.id;
+      todoItems = todoItems.filter((x) => x.id !== id);
+      setTodoPill();
+      renderTodoRows();
+      try {
+        const r = await fetchT("/api/todos/" + encodeURIComponent(id) + todoListParam(), { method: "DELETE" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+      } catch (err) { loadTodo(); } // out of sync with server → reload from source of truth
+    });
+
+    bodyEl.addEventListener("change", async (e) => {
+      if (!e.target.classList.contains("todo-row__check")) return;
+      const row = e.target.closest(".todo-row"); if (!row) return;
+      const id = row.dataset.id;
+      const done = e.target.checked;
+      try {
+        const r = await fetchT("/api/todos/" + encodeURIComponent(id) + todoListParam(), {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ done }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        todoItems = todoItems.filter((x) => x.id !== id); // done tasks drop off the open-only list
+        setTodoPill();
+        renderTodoRows();
+      } catch (err) {
+        e.target.checked = !done; // revert the optimistic UI
+        fail(bodyEl, "Couldn't update task — " + esc(err.message || "fetch failed"));
+      }
+    });
+  }
+
+  /* ========================================================================
    * Formula 1 — Jolpica (Ergast successor). Keyless, CORS-enabled, no proxy.
    * Next race + a live countdown to qualifying, with Drivers/Constructors tabs.
    * ======================================================================*/
@@ -1021,7 +1129,7 @@
    * Orchestration
    * ======================================================================*/
   function refreshAll() {
-    loadWeather(); loadStocks(); loadGmail(); loadNews(); loadCalendar(); loadF1();
+    loadWeather(); loadStocks(); loadGmail(); loadTodo(); loadNews(); loadCalendar(); loadF1();
     $("footStatus").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
   function schedule(fn, minutes) { if (minutes > 0) setInterval(fn, minutes * 60000); }
@@ -1029,6 +1137,7 @@
   function init() {
     initTheme();
     initCalManager();
+    initTodoModule();
     tickClock(); setInterval(tickClock, 1000 * 15);
     setInterval(() => applyScene(lastWeatherCode), 10 * 60000); // track time-of-day
     setInterval(updateQualiCountdown, 1000); // live F1 qualifying countdown
@@ -1036,6 +1145,7 @@
     schedule(loadWeather, 15);
     schedule(loadStocks, CFG.stocks?.refreshMinutes || 5);
     schedule(loadGmail, 5);
+    schedule(loadTodo, 5);
     schedule(loadNews, CFG.news?.refreshMinutes || 20);
     schedule(loadCalendar, CFG.calendar?.refreshMinutes || 30);
     schedule(loadF1, CFG.f1?.refreshMinutes || 60);

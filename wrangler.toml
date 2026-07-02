@@ -2,7 +2,8 @@
 # wrangler.toml — config for the "home" Worker (the site itself)
 # -----------------------------------------------------------------------------
 # This turns the formerly assets-only Worker into worker code + static assets:
-# server/worker.js answers /api/calendars (calendar store, Workers KV) and
+# server/worker.js answers /api/calendars (calendar store, Workers KV),
+# /api/gmail (Gmail unread pill), and /api/todos (Microsoft To Do pill), and
 # passes every other request through to the repo's static files.
 #
 # One-time KV setup (✅ done — namespace created and bound below):
@@ -36,5 +37,17 @@ id = "b1fc9713d92d4855b8371140979c5a05"
 # (requires 2FA on the Google account: myaccount.google.com → Security →
 # App passwords). Until the secret exists, /api/gmail returns 503 and the
 # pill stays hidden.
+#
+# Microsoft To Do pill (/api/todos). MSTODO_CLIENT_ID is a public-client OAuth
+# client id — not secret, safe to commit (see CLAUDE.md for the Azure app
+# registration steps). The thing that IS sensitive, the refresh token, does
+# NOT go here or in `wrangler secret` — it lives in Workers KV (binding CALS,
+# key "msTodoRefreshToken") because Microsoft rotates it on every use and a
+# Worker secret can't be rewritten at runtime. One-time bootstrap (see
+# CLAUDE.md "Microsoft To Do bootstrap" for the full device-code flow):
+#   npx wrangler kv key put --binding=CALS msTodoRefreshToken "<refresh_token>"
+# Until MSTODO_CLIENT_ID is set (or the KV key is missing), /api/todos returns
+# 503 and the pill stays hidden — same fail-soft pattern as Gmail.
 [vars]
 GMAIL_USER = "adam.berczi@gmail.com"
+MSTODO_CLIENT_ID = "<paste after Azure app registration>"

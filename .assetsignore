@@ -2,6 +2,7 @@
 # (tv-shows.ics MUST stay served — do not add it here.)
 .git
 .assetsignore
+.claude
 server
 proxy
 wrangler.toml
