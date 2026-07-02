@@ -363,6 +363,20 @@ widgets, add stocks/feeds/teams. Most content changes = edit `config.js`
     weekly) — covers the common Google Calendar patterns, not the full spec
     (no `BYMONTHDAY`/`BYSETPOS`/etc.). Only expands within the display
     window (today → +7 days), so it stays fast even for years-old series.
+  - **Multi-day all-day events (DTEND).** `parseICS` now also captures
+    `DTEND`. Without it, an event's "is this upcoming/ongoing?" check only
+    ever looked at `DTSTART` — so a multi-day all-day event (e.g. an
+    RFC 5545 `DTSTART;VALUE=DATE` Wed → exclusive `DTEND;VALUE=DATE` the
+    following Mon, covering Wed–Sun) silently disappeared the moment its
+    start day passed, even though it was still ongoing. Fixed in
+    `loadCalendar()`: events now carry an `{ start, end }` range (missing
+    `DTEND` on an all-day event implies a 1-day span per RFC 5545; a bare
+    timed event with no `DTEND` falls back to a zero-length span, unchanged
+    from before), and both the "keep it?" filter and the Today/Tomorrow/This
+    week bucketing use **range overlap** against each window instead of
+    comparing `DTSTART` alone — so a multi-day event correctly appears on
+    every card it spans, not just the one matching its start day. Recurring
+    multi-day occurrences carry the series' original duration forward too.
   - **The calendar store + manager.** Each calendar is
     `{ id, name, url, color, visible }`. Canonical copy lives **server-side
     in Workers KV** via same-origin `GET/PUT /api/calendars`
